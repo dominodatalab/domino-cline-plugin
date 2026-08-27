@@ -309,9 +309,13 @@ Before writing or verifying any API call, use the cluster swagger to confirm cur
 
 Fetch the swagger spec:
 ```bash
-# No authentication required for the public API spec
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected:
 curl "$DOMINO_API_HOST/assets/public-api.json"
-# Browser UI: $DOMINO_API_HOST/assets/lib/swagger-ui/index.html?url=/assets/public-api.json#/
+
+# From Cline on the laptop, that env var isn't set — resolve the cluster's
+# host via the `list_domino_clusters` MCP tool instead, then:
+curl "<cluster_host>/assets/public-api.json"
+# Browser UI: <cluster_host>/assets/lib/swagger-ui/index.html?url=/assets/public-api.json#/
 ```
 
 **Public docs (workflow context and field explanations):**

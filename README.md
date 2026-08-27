@@ -9,7 +9,7 @@ server.
 
 ## What's here
 
-- `skills/` — 30 Cline-native skills (`SKILL.md` with `name:`/`description:`
+- `skills/` — 31 Cline-native skills (`SKILL.md` with `name:`/`description:`
   frontmatter). Cline auto-routes to these by description; no manual
   invocation needed. Includes:
   - 23 platform skills (deploying apps, jobs, experiment tracking, etc.)
@@ -19,7 +19,7 @@ server.
   - 4 skills adapted from slash commands (domino-app-init,
     domino-debug-proxy, domino-experiment-setup, domino-trace-setup) — also
     usable as literal `/domino-app-init` etc. slash commands in Cline
-  - 3 platform-ops skills:
+  - 4 platform-ops/reference skills:
     - `domino-teleport` — Teleport (`tsh`/`tsh7`) login + kubectl access to
       Domino's Kubernetes clusters, keyed by the same cluster aliases as
       `~/.domino/.env`'s `DOMINO_CLUSTERS`
@@ -31,6 +31,11 @@ server.
       tell Cline to append a new section documenting any AWS service it
       handles that isn't yet covered, so the file grows with use instead
       of staying frozen at what it shipped with.
+    - `domino-docs` — explicit lookups against `docs.dominodatalab.com` for
+      conceptual/product questions, version-matched to the target cluster
+      via `domino-teleport`'s registry. Complements (doesn't replace) the
+      standing "verify against the live swagger/docs before implementing"
+      behavior in the global Cline rule — see "Docs & swagger" below.
 - `mcp-servers/domino_mcp_server/` — MCP server wrapping the Domino REST API
   (run jobs, check status, sync files to DFS projects, check cluster access).
 - `hooks/PostToolUse` — a single PostToolUse hook (app.sh binds to `0.0.0.0`,
@@ -101,6 +106,31 @@ unambiguous. Always exits 0 (never blocks).
 Install: `ln -sfn "$(pwd)/hooks/PostToolUse" ~/Documents/Cline/Hooks/PostToolUse`
 (global) or copy to `.clinerules/hooks/PostToolUse` per-project.
 
+## Docs & swagger
+
+Two mechanisms, deliberately not one, so "check the docs" doesn't depend on
+the model deciding a particular question needs it:
+
+1. **Standing behavior, via the global Cline rule** (`~/Documents/Cline/Rules/domino.md`,
+   not part of this repo): before implementing or debugging real work
+   against a Domino cluster, resolve the host via `list_domino_clusters`
+   and check the live swagger, and for platform-behavior questions, check
+   `docs.dominodatalab.com` — regardless of which skill triggered the work.
+   This is the fix for the actual failure mode: assumption-driven debug
+   loops that a 10-second doc check would've avoided. It's an instruction,
+   not an enforced check.
+2. **`domino-docs` skill** — for explicit, on-demand conceptual lookups
+   ("how does X work in Domino") independent of any specific task.
+
+Several skills (`domino-apps`, `domino-jobs`, `domino-python-sdk`,
+`domino-ai-gateway`, `domino-ui-design`) had a swagger-fetch snippet using
+`$DOMINO_API_HOST` — which is only set **inside** a Domino
+workspace/job/app. Cline runs from the laptop, where that env var doesn't
+exist; those snippets have been fixed to resolve the host via
+`list_domino_clusters` instead, with the in-workspace form kept as an
+alternative. `domino-governance` didn't need this — it already derives its
+API base from the JWT `iss` claim, which works in either context.
+
 ## Known gaps
 
 **Output styles — not implemented, by decision (2026-08-26).** Claude
@@ -128,9 +158,10 @@ Several skills may still reference endpoint paths that haven't been verified
 against the current Domino API. The static violations (placeholder auth,
 placeholder hosts, `python-domino` SDK examples) have been resolved — see
 `SKILL_AUDIT.md`. For Rules 4 (verified endpoints) and 5 (smoke-tested
-payloads), verify per-PR. Prefer `$DOMINO_API_HOST` and the workspace
-bearer-token pattern, and verify endpoints against the live swagger before
-trusting a skill's example verbatim.
+payloads), verify per-PR. Prefer the workspace bearer-token pattern (when
+running inside a workspace) or `list_domino_clusters` (when running from
+Cline on the laptop) over a skill's example verbatim, and verify endpoints
+against the live swagger either way — see "Docs & swagger" above.
 
 ## Testing
 
