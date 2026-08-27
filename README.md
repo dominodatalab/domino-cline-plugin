@@ -132,6 +132,26 @@ payloads), verify per-PR. Prefer `$DOMINO_API_HOST` and the workspace
 bearer-token pattern, and verify endpoints against the live swagger before
 trusting a skill's example verbatim.
 
+## Testing
+
+The test suite (`pytest`) enforces the Skill Authoring Standards statically
+across all `skills/*/*.md` files and functionally tests the MCP server's
+credential loading + `check_domino_api_access` tool.
+
+```bash
+scripts/test.sh            # from the repo root
+# or, from anywhere on your Mac (any cwd), by absolute path:
+/Users/michaelsnyder/repos/domino-cline-plugin/scripts/test.sh
+# or, from the repo root, without the wrapper:
+./mcp-servers/domino_mcp_server/.venv/bin/python -m pytest
+```
+
+> **Why `scripts/test.sh`?** pytest only honors the `testpaths` ini option
+> when invoked from the directory that contains `pytest.ini` (the repo root).
+> If you run bare `pytest` from a subdirectory (e.g. inside
+> `mcp-servers/domino_mcp_server/`), it silently collects 0 tests. The wrapper
+> avoids that footgun.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE). Content is derived from Domino Data Lab
