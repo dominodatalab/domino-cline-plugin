@@ -58,7 +58,7 @@ npx serve -s dist -l 8888 --no-clipboard
 
 ### .env.example
 ```
-VITE_MODEL_API_URL=https://your-domino.com/models/MODEL_ID/latest/model
+VITE_MODEL_API_URL=https://$DOMINO_API_HOST/models/MODEL_ID/latest/model
 VITE_MODEL_API_TOKEN=your_api_token
 ```
 

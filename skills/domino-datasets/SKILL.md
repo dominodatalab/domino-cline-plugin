@@ -36,17 +36,25 @@ A Domino Dataset is:
    - **Description**: What the dataset contains
 5. Click **Create**
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino("project-owner/project-name")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 # Create a new dataset
-dataset = domino.datasets_create(
-    name="training-data",
-    description="Training data for classification model"
+response = requests.post(
+    f"{BASE}/api/datasetrw/v2/datasets",
+    headers=headers,
+    json={
+        "name": "training-data",
+        "description": "Training data for classification model"
+    }
 )
+dataset = response.json()
+print(f"Created dataset: {dataset['id']}")
 ```
 
 ## Dataset Paths

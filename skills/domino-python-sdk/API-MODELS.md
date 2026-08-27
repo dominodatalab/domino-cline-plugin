@@ -92,7 +92,7 @@ GET /api/modelServing/v1/modelApis/{modelApiId}
   "id": "model-api-456",
   "name": "fraud-detector",
   "status": "Running",
-  "url": "https://your-domino.com/models/model-api-456/latest/model",
+  "url": "https://$DOMINO_API_HOST/models/model-api-456/latest/model",
   "projectId": "project-123",
   "createdAt": "2024-01-15T10:00:00Z"
 }
@@ -296,7 +296,7 @@ Returns list of Model APIs deployed from this version.
 ```python
 import requests
 
-model_url = "https://your-domino.com/models/model-api-456/latest/model"
+model_url = "https://$DOMINO_API_HOST/models/model-api-456/latest/model"
 
 response = requests.post(
     model_url,

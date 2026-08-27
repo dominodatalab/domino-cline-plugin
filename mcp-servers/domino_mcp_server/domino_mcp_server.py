@@ -10,8 +10,19 @@ from dotenv import load_dotenv
 import re
 import webbrowser
 import urllib.parse
+from pathlib import Path
 
-load_dotenv()
+# Load Domino credentials from a stable, repo-independent location first, so
+# this works from any Cline session regardless of the repo Cline is in. Falls
+# back to the legacy plugin-dir .env for backwards compatibility.
+for _env_candidate in (
+    Path.home() / ".domino" / ".env",
+    Path.home() / ".env",
+    Path(__file__).parent / ".env",
+):
+    if _env_candidate.is_file():
+        load_dotenv(str(_env_candidate))
+        break
 
 
 def _is_domino_workspace() -> bool:
@@ -320,6 +331,69 @@ def list_domino_clusters() -> Dict[str, Any]:
         "clusters": {alias: info["host"] for alias, info in clusters.items()},
         "default_cluster": _default_cluster_alias(clusters),
     }
+
+
+@mcp.tool()
+def check_domino_api_access(cluster: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Verify that the Domino REST API is reachable and the API key is valid for
+    the given cluster, by making a lightweight authenticated request.
+
+    This is the first leg of the standard Domino access-check protocol
+    (REST API -> Teleport -> AWS). Returns `access: true` on success, or
+    `access: false` plus a human-readable `error` explaining how to fix it
+    (e.g. regenerate an expired key).
+
+    Args:
+        cluster (str, optional): Which configured Domino cluster to use (see
+            list_domino_clusters). Defaults to the default cluster.
+    """
+    host = _get_domino_host(cluster)
+    try:
+        headers = _get_auth_headers(cluster)
+        resp = requests.get(
+            f"{host}/v4/gateway/projects",
+            headers=headers,
+            params={"relationship": "Owned"},
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            return {
+                "access": True,
+                "host": host,
+                "status": resp.status_code,
+                "project_count": len(data) if isinstance(data, list) else None,
+            }
+        if resp.status_code in (401, 403):
+            return {
+                "access": False,
+                "host": host,
+                "status": resp.status_code,
+                "error": (
+                    "API key expired or invalid. Regenerate it at "
+                    f"{host}/account/settings/api-keys and update "
+                    "~/.domino/.env (DOMINO_API_KEY_<ALIAS>)."
+                ),
+            }
+        return {
+            "access": False,
+            "host": host,
+            "status": resp.status_code,
+            "error": f"Unexpected response status {resp.status_code}.",
+        }
+    except requests.exceptions.ConnectTimeout:
+        return {
+            "access": False,
+            "host": host,
+            "error": f"Connection to {host} timed out. Is the cluster reachable?",
+        }
+    except requests.exceptions.ConnectionError as exc:
+        return {
+            "access": False,
+            "host": host,
+            "error": f"Cannot connect to {host}: {exc}",
+        }
 
 
 @mcp.tool()

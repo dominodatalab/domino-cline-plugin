@@ -210,22 +210,32 @@ joblib.dump(model, "/mnt/artifacts/model_v2.joblib")
 ```
 
 ### Automated Retraining
-Set up scheduled job to retrain when drift detected:
+Set up a scheduled job to retrain when drift detected:
 ```python
 # scheduled_retrain.py
-from domino import Domino
+import requests, os
 
-domino = Domino("project/model-project")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 # Check drift status
 drift_status = check_drift_metrics()
 
 if drift_status["max_drift"] > 0.2:
     # Trigger retrain job
-    domino.runs_start(
-        command="python retrain.py",
-        hardware_tier_name="medium"
+    response = requests.post(
+        f"{BASE}/api/jobs/v1/jobs",
+        headers=headers,
+        json={
+            "projectId": os.environ["DOMINO_PROJECT_ID"],
+            "runCommand": "python retrain.py",
+            "title": "Retrain - drift detected",
+            "hardwareTierId": "medium"
+        }
     )
+    job = response.json()
+    print(f"Retrain job started: {job['id']}")
 ```
 
 ## Best Practices

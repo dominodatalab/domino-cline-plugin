@@ -23,7 +23,7 @@ response = requests.get(url, headers=headers)
 
 ## Base URL
 ```
-https://your-domino-instance.com
+https://$DOMINO_API_HOST
 ```
 
 ---

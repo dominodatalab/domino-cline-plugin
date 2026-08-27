@@ -21,17 +21,26 @@ Domino provides VS Code as a workspace option, offering a full-featured code edi
 3. Choose hardware tier and environment
 4. Click **Launch**
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino("project-owner/project-name")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
-workspace = domino.workspace_start(
-    workspace_type="VSCode",
-    hardware_tier_name="medium",
-    environment_id="your-environment-id"
+response = requests.post(
+    f"{BASE}/api/jobs/v1/jobs",
+    headers=headers,
+    json={
+        "projectId": os.environ["DOMINO_PROJECT_ID"],
+        "runCommand": "",  # interactive workspace
+        "title": "VS Code session",
+        "hardwareTierId": "medium",
+        "environmentId": "your-environment-id",
+    }
 )
+result = response.json()
 ```
 
 ## VS Code Extensions

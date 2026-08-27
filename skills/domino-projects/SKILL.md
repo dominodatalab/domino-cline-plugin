@@ -41,18 +41,25 @@ Activate this skill when users want to:
 4. Configure settings
 5. Click **Create**
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino()
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 # Create DFS project
-project = domino.project_create(
-    project_name="my-project",
-    owner_name="your-username"
+response = requests.post(
+    f"{BASE}/api/projects/beta/projects",
+    headers=headers,
+    json={
+        "name": "my-project",
+        "description": "Project for ML experiments",
+        "visibility": "Private"
+    }
 )
-
+project = response.json()
 print(f"Project ID: {project['id']}")
 ```
 

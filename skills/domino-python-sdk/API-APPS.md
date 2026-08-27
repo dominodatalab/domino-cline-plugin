@@ -60,7 +60,7 @@ apps = response.json()
       "description": "Sales analytics dashboard",
       "projectId": "project-456",
       "status": "Running",
-      "url": "https://your-domino.com/apps/app-123",
+      "url": "https://$DOMINO_API_HOST/apps/app-123",
       "createdAt": "2024-01-15T10:00:00Z"
     }
   ],

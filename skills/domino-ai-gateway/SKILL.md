@@ -75,12 +75,13 @@ response = requests.post(
 AI Gateway provides an OpenAI-compatible interface:
 
 ```python
+import os
 from openai import OpenAI
 
 # Configure client to use AI Gateway
 client = OpenAI(
     api_key="not-needed",  # Handled by AI Gateway
-    base_url="https://your-domino.com/api/aigateway/v1/openai"
+    base_url=f"{os.environ['DOMINO_API_HOST']}/api/aigateway/v1/openai"
 )
 
 # Use like standard OpenAI
@@ -96,12 +97,13 @@ print(response.choices[0].message.content)
 
 ### With LangChain
 ```python
+import os
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
     model="openai-gpt4",  # Endpoint name
     openai_api_key="not-needed",
-    openai_api_base="https://your-domino.com/api/aigateway/v1/openai"
+    openai_api_base=f"{os.environ['DOMINO_API_HOST']}/api/aigateway/v1/openai"
 )
 
 response = llm.invoke("What is machine learning?")

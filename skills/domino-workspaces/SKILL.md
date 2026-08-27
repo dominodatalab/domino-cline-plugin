@@ -40,20 +40,28 @@ Domino provides these default workspace types:
    - **Volume Size**: Persistent storage (if needed)
 5. Click **Launch**
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino("project-owner/project-name")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
-# Start a workspace
-workspace = domino.workspace_start(
-    environment_id="env-123",
-    hardware_tier_name="small",
-    workspace_type="JupyterLab"
+# Start a workspace via REST (launch as a job with an interactive IDE)
+response = requests.post(
+    f"{BASE}/api/jobs/v1/jobs",
+    headers=headers,
+    json={
+        "projectId": os.environ["DOMINO_PROJECT_ID"],
+        "runCommand": "",  # empty command for interactive workspace
+        "title": "Workspace session",
+        "hardwareTierId": "small",
+        "environmentId": "env-123",
+    }
 )
-
-print(f"Workspace ID: {workspace['workspaceId']}")
+result = response.json()
+print(f"Session ID: {result['id']}")
 ```
 
 ## File Persistence

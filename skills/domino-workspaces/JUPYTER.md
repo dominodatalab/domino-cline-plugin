@@ -22,17 +22,26 @@ Domino provides both Jupyter Notebook and JupyterLab as workspace options for in
 3. Choose hardware tier and environment
 4. Click **Launch**
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino("project-owner/project-name")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
-workspace = domino.workspace_start(
-    workspace_type="JupyterLab",
-    hardware_tier_name="small",
-    environment_id="your-environment-id"
+response = requests.post(
+    f"{BASE}/api/jobs/v1/jobs",
+    headers=headers,
+    json={
+        "projectId": os.environ["DOMINO_PROJECT_ID"],
+        "runCommand": "",  # interactive workspace
+        "title": "JupyterLab session",
+        "hardwareTierId": "small",
+        "environmentId": "your-environment-id",
+    }
 )
+result = response.json()
 ```
 
 ## Jupyter AI Integration

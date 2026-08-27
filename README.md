@@ -5,14 +5,6 @@ experiment tracking, GenAI tracing, Spark/Ray/Dask, and app deployment — as
 a native [Cline](https://cline.bot) skill pack, plus the Domino REST API MCP
 server.
 
-This is a separate, standalone tool from
-[domino-claude-plugin](https://github.com/dominodatalab/domino-claude-plugin)
-(the Claude Code plugin) because Cline and Claude Code are different products
-with different extension mechanisms. The instructional *content* is sourced
-from that repo and kept in sync via `scripts/sync_from_domino_claude_plugin.py`
-— domino-claude-plugin remains the source of truth for skill authoring;
-this repo just re-packages it for Cline.
-
 > **Status: not yet ready to share.** Being tested locally before publishing.
 
 ## What's here
@@ -21,23 +13,37 @@ this repo just re-packages it for Cline.
   frontmatter). Cline auto-routes to these by description; no manual
   invocation needed. Includes:
   - 23 platform skills (deploying apps, jobs, experiment tracking, etc.)
-  - 3 skills adapted from domino-claude-plugin's specialized agents
-    (domino-debug, domino-deploy, domino-setup) — Cline has no sub-agent
-    spawning mechanism, so these are auto-routed/slash-invokable skills
-    rather than isolated agent contexts
-  - 4 skills adapted from domino-claude-plugin's slash commands
-    (domino-app-init, domino-debug-proxy, domino-experiment-setup,
-    domino-trace-setup) — also usable as literal `/domino-app-init` etc.
-    slash commands in Cline
+  - 3 skills adapted from specialized agents (domino-debug, domino-deploy,
+    domino-setup) — Cline has no sub-agent spawning mechanism, so these are
+    auto-routed/slash-invokable skills rather than isolated agent contexts
+  - 4 skills adapted from slash commands (domino-app-init,
+    domino-debug-proxy, domino-experiment-setup, domino-trace-setup) — also
+    usable as literal `/domino-app-init` etc. slash commands in Cline
+  - 3 platform-ops skills:
+    - `domino-teleport` — Teleport (`tsh`/`tsh7`) login + kubectl access to
+      Domino's Kubernetes clusters, keyed by the same cluster aliases as
+      `~/.domino/.env`'s `DOMINO_CLUSTERS`
+    - `domino-access` — standard access-check protocol (REST API → Teleport →
+      AWS, in that order) with re-auth prompts when a credential/session
+      expires
+    - `aws-ops` — AWS CLI ops (S3, EFS, EKS, CloudWatch Logs) against
+      Domino's infra. Deliberately self-extending: its own instructions
+      tell Cline to append a new section documenting any AWS service it
+      handles that isn't yet covered, so the file grows with use instead
+      of staying frozen at what it shipped with.
 - `mcp-servers/domino_mcp_server/` — MCP server wrapping the Domino REST API
-  (run jobs, check status, sync files to DFS projects). Copied as-is; not
-  Cline-specific.
+  (run jobs, check status, sync files to DFS projects, check cluster access).
+- `hooks/PostToolUse` — a single PostToolUse hook (app.sh binds to `0.0.0.0`,
+  Python syntax check, `black` formatting, `hadolint` on Dockerfiles). See
+  "Hooks" below for why this isn't split per-tool.
+- `CONTRIBUTING.md` — authoring guidance and the Skill Authoring Standards.
+- `SKILL_AUDIT.md` — tracking checklist of known skill content issues.
 
-Not carried over from domino-claude-plugin, deliberately:
-- `mcp-servers/skills_mcp_server/` — built as a workaround for clients
-  without native skill-routing (e.g. Continue+Qwen). Redundant here since
-  Cline routes skills natively.
-- `hooks/`, `output-styles/` — no Cline equivalent exists today.
+Not included, deliberately:
+- `mcp-servers/skills_mcp_server/` — a workaround for clients without native
+  skill-routing (e.g. Continue+Qwen). Redundant here since Cline routes
+  skills natively.
+- `output-styles/` — see "Known gaps" below.
 
 ## Install
 
@@ -63,32 +69,70 @@ done
 }
 ```
 
-Then set `DOMINO_API_KEY` and `DOMINO_HOST` in
-`mcp-servers/domino_mcp_server/.env` (gitignored).
+Then fill in `~/.domino/.env` (next to your existing Domino CLI data). It supports
+either a single Domino instance (`DOMINO_API_KEY`/`DOMINO_HOST`) or several
+(`DOMINO_CLUSTERS=alias1,alias2` + per-alias `DOMINO_HOST_<ALIAS>`/
+`DOMINO_API_KEY_<ALIAS>`) — see the comments in that file. Every
+domino_server tool takes an optional `cluster` argument matching one of
+those aliases; a `list_domino_clusters` tool reports what's configured, and
+the global Cline rule (`~/Documents/Cline/Rules/domino.md`) tells Cline to
+call it before assuming which instance to target when more than one is
+set up.
 
-## Keeping in sync with domino-claude-plugin
+## Hooks
 
-```bash
-python3 scripts/sync_from_domino_claude_plugin.py [--source /path/to/domino-claude-plugin]
-```
+Cline's hook mechanism is architecturally different from Claude Code's
+`hooks.json`: it runs exactly **one executable file per event**, named after
+the event (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`,
+`PreCompact`, `PostToolUseFailure`, `PostToolBatch`) — no per-tool `matcher`
+config. Verified directly against the installed extension's code
+(`saoudrizwan.claude-dev`); Cline's own hooks docs page just redirects to an
+undocumented "SDK Plugins" page.
 
-Defaults to a sibling checkout (`../domino-claude-plugin`). Re-copies all
-skills/agents/commands, records the synced source commit in
-`.sync-source.json`, and preserves your local `.env` if one already exists.
-Review with `git diff` before committing — some upstream skills carry known
-content issues (placeholder auth/hosts) tracked in domino-claude-plugin's own
-`SKILL_AUDIT.md`.
+The four example hooks (a `PreToolUse` check on Write for app.sh, and three
+`PostToolUse` checks on Edit/Write) are combined into the single
+`hooks/PostToolUse` script here, rather than split into `PreToolUse` +
+`PostToolUse`. Reason: the app.sh check needs to inspect file content, and
+whether `PreToolUse` gives reliable access to *pending* write content (before
+it lands on disk) couldn't be confirmed from the extension code —
+`PostToolUse` reads the already-written file from disk instead, which is
+unambiguous. Always exits 0 (never blocks).
+
+Install: `ln -sfn "$(pwd)/hooks/PostToolUse" ~/Documents/Cline/Hooks/PostToolUse`
+(global) or copy to `.clinerules/hooks/PostToolUse` per-project.
+
+## Known gaps
+
+**Output styles — not implemented, by decision (2026-08-26).** Claude
+Code's `output-styles/domino-learning.md` and `domino-mlops.md` have no
+Cline equivalent: confirmed via Cline's docs index (`llms.txt`, zero hits
+for "output style"/"persona"/"tone") and a grep of the installed extension
+code (zero genuine matches). Cline has no swappable-persona/system-prompt
+mechanism.
+
+Both source files set `keep-coding-instructions: true`, meaning neither
+changes how tasks actually get solved — they only append a required
+formatted block after each task (`domino-learning`: a "Domino Insight"
+explainer; `domino-mlops`: an "MLOps Checklist" plus proactively suggesting
+things like dataset snapshots or model monitoring). Since that's just
+injected instruction text, not a real mode-switch, the best available
+approximation is a manually-toggled global Cline Rule (Cline's Rules panel
+supports enabling/disabling individual rules) — that would faithfully
+reproduce the actual content, just without the one-click "switch modes"
+UX. Decided to skip for now; revisit if the always-on-until-toggled
+workflow turns out to matter in practice.
 
 ## Known content caveats
 
-Per domino-claude-plugin's `SKILL_AUDIT.md`, several skills still contain
-placeholder auth (`X-Domino-Api-Key` + hardcoded key) or placeholder hosts
-(`your-domino.com`). Prefer `$DOMINO_API_HOST` and the workspace bearer-token
-pattern, and verify endpoints against the live swagger before trusting a
-skill's example verbatim. This will improve as those audit items get fixed
-upstream and pulled in via the next sync.
+Several skills may still reference endpoint paths that haven't been verified
+against the current Domino API. The static violations (placeholder auth,
+placeholder hosts, `python-domino` SDK examples) have been resolved — see
+`SKILL_AUDIT.md`. For Rules 4 (verified endpoints) and 5 (smoke-tested
+payloads), verify per-PR. Prefer `$DOMINO_API_HOST` and the workspace
+bearer-token pattern, and verify endpoints against the live swagger before
+trusting a skill's example verbatim.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). Content originates from domino-claude-plugin
-(also MIT, Domino Data Lab).
+MIT — see [LICENSE](./LICENSE). Content is derived from Domino Data Lab
+materials (also MIT, Domino Data Lab).

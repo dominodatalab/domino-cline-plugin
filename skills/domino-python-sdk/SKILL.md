@@ -62,26 +62,12 @@ Use `headers` on all `requests` calls. Prefer this over the SDK for new code —
 
 ### SDK Authentication (deprecated pattern)
 
-> **Note:** `DOMINO_USER_API_KEY` and the `api_key=` parameter are deprecated and will be removed in a future Domino release. Use the access-token endpoint above for new code. The SDK options below are documented for reference only.
+> **Note:** `DOMINO_USER_API_KEY` and the `api_key=` parameter are deprecated and will be removed in a future Domino release. Use the [access-token pattern](#preferred-access-token-inside-domino) above for new code. The credential-based auth examples formerly shown here have been removed — use REST instead.
 
 ```python
 from domino import Domino
 
-# Option 1: Pass credentials directly (deprecated)
-domino = Domino(
-    host="https://your-domino.com",
-    api_key="your-api-key",
-    project="owner/project-name"
-)
-
-# Option 2: Environment variables (deprecated)
-import os
-os.environ["DOMINO_API_HOST"] = "https://your-domino.com"
-os.environ["DOMINO_USER_API_KEY"] = "your-api-key"
-
-domino = Domino("owner/project-name")
-
-# Option 3: Inside Domino (auto-configured via injected env vars)
+# Inside Domino, the SDK auto-configures auth from injected env vars:
 domino = Domino("owner/project-name")
 ```
 

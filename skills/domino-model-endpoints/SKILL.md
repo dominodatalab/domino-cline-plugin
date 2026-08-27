@@ -94,7 +94,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -d '{"data": {"features": [1.0, 2.0, 3.0]}}' \
-  https://your-domino.com/models/abc123/latest/model
+  "$DOMINO_API_HOST/models/abc123/latest/model"
 ```
 
 ## Environment Variables

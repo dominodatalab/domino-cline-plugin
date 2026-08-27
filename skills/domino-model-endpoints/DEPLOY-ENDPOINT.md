@@ -241,23 +241,30 @@ model_path = os.environ.get('MODEL_PATH', 'model.pkl')
 
 ## Deploying via API
 
-### Using Domino Python Client
+### Using REST API
 
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino(
-    host="https://your-domino.com",
-    api_key="your-api-key"
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+
+response = requests.post(
+    f"{BASE}/api/modelServing/v1/modelApis",
+    headers=headers,
+    json={
+        "projectId": os.environ["DOMINO_PROJECT_ID"],
+        "name": "my-classifier",
+        "description": "Classification model",
+        "modelFile": "model.py",
+        "modelFunction": "predict",
+        "environmentId": "env-123"
+    }
 )
-
-# Create model endpoint
-model = domino.model_publish(
-    file="model.py",
-    function="predict",
-    environment_id="env-123",
-    name="my-classifier",
-    description="Classification model"
+model = response.json()
+print(f"Model API ID: {model['id']}")
+```
 )
 
 print(f"Model ID: {model['id']}")
@@ -305,7 +312,7 @@ For predictions that take longer to process:
 import requests
 import time
 
-DOMINO_URL = "https://your-domino.com"
+DOMINO_URL = "https://$DOMINO_API_HOST"
 MODEL_ID = "abc123"
 MODEL_ACCESS_TOKEN = "your_token"
 
@@ -385,7 +392,7 @@ async function predict(features) {
 
 ```bash
 curl -X POST \
-  "https://your-domino.com/models/abc123/latest/model" \
+  "$DOMINO_API_HOST/models/abc123/latest/model" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -d '{"data": {"features": [1.0, 2.0, 3.0]}}'

@@ -304,7 +304,7 @@ class ModelUser(HttpUser):
 
 Run test:
 ```bash
-locust -f locustfile.py --host=https://your-domino.com
+locust -f locustfile.py --host="$DOMINO_API_HOST"
 ```
 
 ### Performance Targets

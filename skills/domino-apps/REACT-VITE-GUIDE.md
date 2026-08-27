@@ -103,7 +103,7 @@ Create a `.env` file for local development:
 
 ```bash
 # .env.local
-VITE_MODEL_API_URL=https://your-domino.com/models/abc123/latest/model
+VITE_MODEL_API_URL=https://$DOMINO_API_HOST/models/abc123/latest/model
 VITE_MODEL_API_TOKEN=your_api_token_here
 ```
 

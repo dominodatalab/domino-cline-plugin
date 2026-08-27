@@ -107,10 +107,11 @@ API_TOKEN = requests.get("http://localhost:8899/access-token").text
 ### Making Authenticated Requests
 
 ```python
-import requests
+import requests, os
 
 # 1. Get access token from Domino's token service
 API_TOKEN = requests.get("http://localhost:8899/access-token").text
+API_HOST = os.environ["DOMINO_API_HOST"]
 
 # 2. Set up headers with bearer token
 headers = {
@@ -125,7 +126,7 @@ payload = {
 
 try:
     resp = requests.post(
-        "https://your-domino-instance/apps-internal/APP_ID/endpoint",
+        f"{API_HOST}/apps-internal/APP_ID/endpoint",
         json=payload,
         headers=headers,
         timeout=100

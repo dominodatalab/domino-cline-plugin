@@ -170,14 +170,12 @@ The library auto-configures authentication inside Domino workspaces and jobs usi
 # DOMINO_USER_API_KEY - Legacy API key (deprecated, will be removed)
 ```
 
-For external use (e.g., CI/CD outside a Domino execution):
-
-> **Note:** `DOMINO_USER_API_KEY` is deprecated and will be removed in a future Domino release. Prefer running data-SDK code from inside a Domino workspace or job where token-based auth is injected automatically.
+For external use (e.g., CI/CD outside a Domino execution), point the SDK at a
+short-lived token file — the legacy API key is deprecated and will be removed:
 
 ```python
 import os
-os.environ["DOMINO_USER_API_KEY"] = "your-api-key"  # deprecated
-os.environ["DOMINO_API_HOST"] = "https://your-domino.com"
+os.environ["DOMINO_TOKEN_FILE"] = "/path/to/token.file"  # preferred, short-lived
 
 from domino_data.data_sources import DataSourceClient
 client = DataSourceClient()

@@ -32,7 +32,7 @@ Add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 export DOMINO_API_KEY="your_api_key_here"
-export DOMINO_HOST="https://your-domino.company.com"
+export DOMINO_HOST="$DOMINO_API_HOST"
 ```
 
 Then reload your shell:

@@ -56,22 +56,30 @@ Activate this skill when users want to:
    - **Auto-scaling**: Enable/disable
 4. Launch
 
-### Via Python SDK
+### Via REST API
 ```python
-from domino import Domino
+import requests, os
 
-domino = Domino("project-owner/project-name")
+TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+BASE = os.environ["DOMINO_API_HOST"]
+headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
-# Start workspace with Spark cluster
-workspace = domino.workspace_start(
-    hardware_tier_name="medium",
-    cluster_config={
-        "clusterType": "Spark",
-        "workerCount": 4,
-        "workerHardwareTier": "medium",
-        "masterHardwareTier": "medium"
+# Start a workspace job with a compute cluster attached (Spark/Ray/Dask).
+# Configure the cluster in the job payload — see the jobs REST reference for
+# the full cluster_config schema.
+response = requests.post(
+    f"{BASE}/api/jobs/v1/jobs",
+    headers=headers,
+    json={
+        "projectId": os.environ["DOMINO_PROJECT_ID"],
+        "runCommand": "python my_script.py",
+        "title": "Distributed compute run",
+        "hardwareTierId": "medium",
+        "environmentId": "env-123",
+        # Add cluster_config for Spark/Ray/Dask workers
     }
 )
+job = response.json()
 ```
 
 ## Apache Spark

@@ -1,0 +1,51 @@
+#!/bin/bash
+# Cline PostToolUse hook — a single script that runs after tool use.
+#
+# Cline invokes exactly one file per event, named after the event (no
+# per-tool matcher config), so this combines four example checks into one
+# script that all run after-the-fact against the file on disk. That's a
+# deliberate choice: PreToolUse would need reliable access to pending
+# write content before Cline commits it, which wasn't verifiable from the
+# installed extension's code, so the app.sh check moved here too rather
+# than ship something that might silently no-op.
+#
+# Never blocks: always exits 0. Warnings go to stderr so they surface
+# without interrupting the tool result.
+
+set -u
+
+INPUT="$(cat)"
+FILE_PATH="$(printf '%s' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('file_path',''))" 2>/dev/null)"
+
+[ -z "$FILE_PATH" ] && exit 0
+[ -f "$FILE_PATH" ] || exit 0
+
+case "$FILE_PATH" in
+  */app.sh|app.sh)
+    if ! grep -q '0\.0\.0\.0' "$FILE_PATH"; then
+      echo "[domino-hooks] Warning: $FILE_PATH should bind to 0.0.0.0, not localhost, for Domino's reverse proxy." >&2
+    fi
+    ;;
+esac
+
+case "$FILE_PATH" in
+  *.py)
+    if ! python3 -m py_compile "$FILE_PATH" 2>/tmp/domino-hook-pycompile.err; then
+      echo "[domino-hooks] Python syntax error in $FILE_PATH:" >&2
+      cat /tmp/domino-hook-pycompile.err >&2
+    fi
+    if command -v black >/dev/null 2>&1; then
+      black --quiet "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+esac
+
+case "$(basename "$FILE_PATH" | tr '[:upper:]' '[:lower:]')" in
+  dockerfile*)
+    if command -v hadolint >/dev/null 2>&1; then
+      hadolint "$FILE_PATH" >&2 || true
+    fi
+    ;;
+esac
+
+exit 0

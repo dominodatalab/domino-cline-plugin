@@ -54,7 +54,7 @@ Azure Entra ID authentication enables OAuth-based access to Azure data services,
 3. Configure:
    - **Name**: Domino Credential Propagation
    - **Supported account types**: Single tenant
-   - **Redirect URI**: Web, `https://your-domino.com/callback`
+   - **Redirect URI**: Web, `https://$DOMINO_API_HOST/callback`
 
 ### Step 2: Configure API Permissions
 

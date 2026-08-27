@@ -169,7 +169,7 @@ jobs:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DOMINO_URL` | Domino deployment URL | `https://your-domino.company.com` |
+| `DOMINO_URL` | Domino deployment URL | `https://<your-cluster>.cs.domino.tech` |
 | `PROJECT_NAME` | Domino project name | `react-dashboard` |
 | `APP_NAME` | Domino app name | `dashboard-app` |
 | `ENVIRONMENT_ID` | Compute environment ID | `64a1b2c3d4e5f6...` |
@@ -189,30 +189,40 @@ Creates or updates a Domino project and app from a Git repository.
 import os
 import sys
 import yaml
-from domino import Domino
+import requests
+
+BASE = os.environ['DOMINO_URL']
+API_KEY = os.environ['DOMINO_API_KEY']
+HEADERS = {"X-Domino-Api-Key": API_KEY, "Content-Type": "application/json"}
 
 def main():
     # Load configuration
-    domino_url = os.environ['DOMINO_URL']
-    api_key = os.environ['DOMINO_API_KEY']
     project_name = os.environ['PROJECT_NAME']
     app_name = os.environ['APP_NAME']
     environment_id = os.environ['ENVIRONMENT_ID']
     hardware_tier_id = os.environ['HARDWARE_TIER_ID']
 
-    # Initialize Domino client
-    domino = Domino(
-        host=domino_url,
-        api_key=api_key
-    )
-
     # Get or create project
-    try:
-        project = domino.project_get(project_name)
+    resp = requests.get(
+        f"{BASE}/api/projects/beta/projects",
+        headers=HEADERS,
+        params={"name": project_name}
+    )
+    projects = resp.json()
+    existing = [p for p in projects.get("data", []) if p.get("name") == project_name]
+
+    if existing:
+        project = existing[0]
         print(f"Found existing project: {project_name}")
-    except:
+    else:
         print(f"Creating project: {project_name}")
-        project = domino.project_create(project_name)
+        resp = requests.post(
+            f"{BASE}/api/projects/beta/projects",
+            headers=HEADERS,
+            json={"name": project_name, "visibility": "Private"}
+        )
+        resp.raise_for_status()
+        project = resp.json()
 
     # Configure Git credentials
     gh_pat = os.environ.get('GH_PAT')
@@ -247,7 +257,6 @@ if __name__ == '__main__':
 ### cicd/requirements.txt
 
 ```
-dominodatalab>=1.3.0
 pyyaml>=6.0
 requests>=2.28.0
 ```
