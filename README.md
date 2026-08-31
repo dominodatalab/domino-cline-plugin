@@ -5,8 +5,6 @@ experiment tracking, GenAI tracing, Spark/Ray/Dask, and app deployment — as
 a native [Cline](https://cline.bot) skill pack, plus the Domino REST API MCP
 server.
 
-> **Status: not yet ready to share.** Being tested locally before publishing.
-
 ## What's here
 
 - `skills/` — 30 Cline-native skills (`SKILL.md` with `name:`/`description:`
@@ -59,10 +57,26 @@ server.
 - `SKILL_AUDIT.md` — tracking checklist of known skill content issues.
 
 Not included, deliberately:
-- `mcp-servers/skills_mcp_server/` — a workaround for clients without native
-  skill-routing (e.g. Continue+Qwen). Redundant here since Cline routes
-  skills natively.
 - `output-styles/` — see "Known gaps" below.
+
+## Prerequisites
+
+- [VS Code](https://code.visualstudio.com/) with the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) installed.
+- [`uv`](https://github.com/astral-sh/uv) — runs the MCP server; no separate
+  Python environment setup needed, `uv run` provisions it from
+  `mcp-servers/domino_mcp_server/pyproject.toml`/`uv.lock` on first use.
+- Python 3.11+ (required by the MCP server; `uv` will use whatever
+  interpreter satisfies this).
+- Git, and a Domino Data Lab account with API access.
+
+Clone this repo, then run the install steps below **from the repo root**
+(the `ln -sfn "$(pwd)/..."` commands resolve relative to your current
+directory):
+
+```bash
+git clone <this-repo-url> domino-cline-plugin
+cd domino-cline-plugin
+```
 
 ## Install
 
