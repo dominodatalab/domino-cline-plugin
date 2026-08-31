@@ -1,17 +1,8 @@
----
-name: domino-app-init
-description: Initialize a new Domino-ready web application with Vite+React, Streamlit, Dash, or Flask. Configures proxy-compatible settings and app.sh.
----
+# Domino App Init
 
-# /domino-app-init Command
-
-Initialize a Domino-ready web application with the correct configuration for Domino's reverse proxy.
-
-## Usage
-
-```
-/domino-app-init [framework]
-```
+Initialize a Domino-ready web application with the correct configuration for
+Domino's reverse proxy. Invoke with `/domino-app-init` (optionally followed by
+a framework name, e.g. `/domino-app-init react`).
 
 ## Supported Frameworks
 
@@ -21,14 +12,21 @@ Initialize a Domino-ready web application with the correct configuration for Dom
 - `flask` - Flask application
 - `gradio` - Gradio application
 
-## What This Command Does
+## Steps
 
-1. **Detects or asks for framework choice**
-2. **Creates app.sh** - Entry point script for Domino
-3. **Configures port binding** - Uses port 8888 by default (flexible)
-4. **Sets up proxy-compatible settings** - For React: `base: './'`
-5. **Creates .env.example** - Template for environment variables
-6. **Adds Model API integration** - Code for calling model endpoints
+1. **Detect or ask for framework choice** — if not given as an argument, ask.
+2. **Create app.sh** - Entry point script for Domino.
+3. **Configure port binding** - Uses port 8888 by default (flexible).
+4. **Set up proxy-compatible settings** - For React: `base: './'`.
+5. **Create .env.example** - Template for environment variables.
+6. **Add Model API integration** - Code for calling model endpoints, if the
+   user wants it.
+
+If run with no framework specified, ask for:
+1. **Framework selection** - Which framework to use.
+2. **Project name** - Name for the project/app.
+3. **Include Model API** - Whether to include model API integration code.
+4. **Model API URL** - If including, the endpoint URL to use.
 
 ## React/Vite Output
 
@@ -119,33 +117,19 @@ set -e
 python app.py
 ```
 
-## Interactive Mode
-
-When run without arguments, the command will prompt for:
-
-1. **Framework selection** - Which framework to use
-2. **Project name** - Name for the project/app
-3. **Include Model API** - Whether to include model API integration code
-4. **Model API URL** - If including, the endpoint URL to use
-
-## Examples
-
-```bash
-# Initialize React app
-/domino-app-init react
-
-# Initialize Streamlit app
-/domino-app-init streamlit
-
-# Interactive mode
-/domino-app-init
-```
-
 ## Post-Initialization Steps
 
-After running this command:
+After running this workflow, tell the user to:
 
-1. **Configure environment variables** in Domino project settings
-2. **Set app.sh as the app entry point** when publishing the app
-3. **Test locally** using `./app.sh` before deploying
-4. **Verify port 8888** is being used correctly
+1. **Configure environment variables** in Domino project settings.
+2. **Set app.sh as the app entry point** when publishing the app.
+3. **Test locally** using `./app.sh` before deploying.
+4. **Verify port 8888** is being used correctly.
+
+## Related
+
+- `/domino-debug-proxy` - Diagnose proxy/routing issues in an app this
+  workflow created (or any existing app).
+- `/domino-experiment-setup`, `/domino-trace-setup` - Set up ML/GenAI
+  tracking instead of (or alongside) a web app.
+- `domino-apps` skill - Deeper framework/CI-CD/troubleshooting reference.

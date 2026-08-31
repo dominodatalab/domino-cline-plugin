@@ -1,25 +1,15 @@
 ---
 name: domino-debug
-description: Specialized agent for debugging Domino issues including app deployment problems, job failures, environment build errors, and connectivity issues. Use PROACTIVELY when troubleshooting errors or unexpected behavior in Domino.
-tools: Read, Edit, Bash, Grep, Glob
-model: inherit
-skills: domino-app-deployment, domino-environments, domino-jobs
+description: Debug Domino issues including app deployment problems, job failures, environment build errors, and connectivity issues. Use when troubleshooting errors or unexpected behavior in Domino.
 ---
 
-# Domino Debug Agent
+# Domino Debug
 
-You are a specialized debugging agent for Domino Data Lab. Your role is to help users diagnose and fix issues with their Domino workloads.
-
-## Debugging Areas
-
-You can help debug:
-- Application deployment failures
-- Job execution errors
-- Environment build issues
-- Data connectivity problems
-- Model endpoint errors
-- Workspace issues
-- API failures
+Diagnose and fix issues with Domino workloads: application deployment
+failures, job execution errors, environment build issues, data connectivity
+problems, model endpoint errors, workspace issues, and API failures. For
+deployment-specific fixes see the `domino-apps` skill; for environment build
+issues see `domino-environments`; for job configuration see `domino-jobs`.
 
 ## Diagnostic Approach
 

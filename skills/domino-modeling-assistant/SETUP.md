@@ -1,15 +1,19 @@
 # Complete Modeling Assistant Setup Guide
 
-This guide covers setup for the Domino modeling assistant. The Domino MCP Server is **bundled with this plugin** and starts automatically — no manual cloning, installation, or MCP configuration is required.
+This guide covers setup for the Domino modeling assistant. The Domino MCP
+Server lives in this plugin's `mcp-servers/domino_mcp_server/`, but it is
+**not** auto-registered — register it once via Cline's MCP Servers settings
+(see this repo's top-level README § Install), then it starts automatically
+for every Cline session from then on.
 
 **Inside a Domino workspace:** Everything is auto-detected (project, auth, DFS/Git mode). Skip straight to [Step 3: Test the Integration](#step-3-test-the-integration).
 
-**Outside Domino (laptop):** You need to set two environment variables and create a project settings file. Follow the full guide below.
+**Outside Domino (laptop):** You need Domino credentials configured and a project settings file. Follow the full guide below.
 
 ## Prerequisites
 
 - Domino Data Lab account with API access
-- Claude Code or Cursor IDE (or compatible MCP-enabled assistant)
+- [Cline](https://cline.bot) (VS Code extension) with this plugin's skills and MCP server installed (see README § Install)
 - Python 3.11+
 - `uv` package manager ([install guide](https://github.com/astral-sh/uv))
 - Git
@@ -26,22 +30,26 @@ This guide covers setup for the Domino modeling assistant. The Domino MCP Server
 4. Click **Generate New Key**
 5. Copy and save the key securely
 
-### Set Environment Variables
+### Configure `~/.domino/.env`
 
-Add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
-
-```bash
-export DOMINO_API_KEY="your_api_key_here"
-export DOMINO_HOST="$DOMINO_API_HOST"
-```
-
-Then reload your shell:
+This plugin's MCP server reads credentials from `~/.domino/.env` (not shell
+environment variables). For a single Domino instance:
 
 ```bash
-source ~/.zshrc  # or ~/.bashrc
+DOMINO_HOST="https://<your-instance>.cs.domino.tech"
+DOMINO_API_KEY="your_api_key_here"
 ```
 
-The plugin's bundled MCP server picks these up automatically via the `.mcp.json` configuration — no `.env` file is needed.
+If you work against more than one Domino instance, use the multi-cluster form
+instead (`DOMINO_CLUSTERS=alias1,alias2` plus per-alias `DOMINO_HOST_<ALIAS>`/
+`DOMINO_API_KEY_<ALIAS>`) — see the README § Install and the `domino-teleport`
+skill's cluster registry. Every `domino_server` MCP tool then takes an
+optional `cluster` argument; call `list_domino_clusters` to see what's
+configured.
+
+No shell profile edits and no separate `.env` file inside this plugin's
+directory are needed once `~/.domino/.env` is filled in — the MCP server
+picks it up on the next call.
 
 ## Step 2: Configure Your Project (Laptop Only)
 
@@ -168,14 +176,19 @@ This image includes:
 ### "MCP server not found" or tools not appearing
 
 1. Ensure `uv` is installed and in your PATH
-2. Restart Claude Code / Cursor after installing the plugin
-3. Check plugin is enabled: `/plugin` → Installed tab
-4. Run `claude --debug` to see MCP server initialization errors
+2. Open Cline's MCP Servers panel and confirm `domino_server` shows as
+   registered and connected — if it's red/disconnected, click it to see the
+   stdout/stderr log from the server process
+3. Confirm the `--directory` argument in the MCP server registration is the
+   absolute path to this plugin's `mcp-servers/domino_mcp_server/` on disk
+   (see README § Install) — a stale or wrong path is the most common cause
+4. Re-registering the server (remove and re-add in the MCP Servers panel)
+   picks up code/config changes without needing to restart the VS Code window
 
 ### "Unauthorized" errors
 
 1. **Workspace:** This shouldn't happen — auth is automatic. Restart the workspace if it persists.
-2. **Laptop:** Verify `DOMINO_API_KEY` and `DOMINO_HOST` are set in your shell environment (`echo $DOMINO_API_KEY`)
+2. **Laptop:** Verify `~/.domino/.env` has `DOMINO_API_KEY`/`DOMINO_HOST` (or the `DOMINO_CLUSTERS` multi-cluster form) set correctly — call the `check_domino_api_access` MCP tool to confirm
 
 ### "Project not found"
 

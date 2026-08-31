@@ -434,9 +434,14 @@ workspaces, jobs, and apps).
 
 Fetch the taxonomy swagger spec (requires bearer token):
 ```bash
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected:
 TOKEN=$(curl -s http://localhost:8899/access-token)
 
 curl -H "Authorization: Bearer $TOKEN" "$DOMINO_API_HOST/api/taxonomy/swagger/doc.json"
+
+# From Cline on the laptop, that env var isn't set — resolve the cluster's
+# host via the `list_domino_clusters` MCP tool instead, then:
+curl -H "Authorization: Bearer $TOKEN" "<cluster_host>/api/taxonomy/swagger/doc.json"
 
 # Browser UI — use the external cluster URL (must be logged in):
 # https://<your-cluster>/api/taxonomy/swagger/index.html

@@ -265,11 +265,6 @@ response = requests.post(
 model = response.json()
 print(f"Model API ID: {model['id']}")
 ```
-)
-
-print(f"Model ID: {model['id']}")
-print(f"Model URL: {model['url']}")
-```
 
 ## Calling Endpoints
 
@@ -412,10 +407,10 @@ curl -X POST \
 
 ```bash
 # Use specific version
-curl -X POST "https://domino.com/models/abc123/v/2/model" ...
+curl -X POST "$DOMINO_API_HOST/models/abc123/v/2/model" ...
 
 # Use latest
-curl -X POST "https://domino.com/models/abc123/latest/model" ...
+curl -X POST "$DOMINO_API_HOST/models/abc123/latest/model" ...
 ```
 
 ### Blue-Green Deployment

@@ -19,10 +19,13 @@ Vibe modeling refers to using AI code assistants to go beyond pure code generati
 
 MCP servers bridge AI coding assistants with the Domino platform APIs we typically need for running jobs (because its better to run analysis and training scripts via jobs than locally), checking job activity and results, saving files to DFS (domino file system) in cases where the project isn't using a git repo.
 
-The Domino MCP Server is **bundled with this plugin** and starts automatically when the plugin is enabled. No manual MCP server installation or configuration is needed.
+The Domino MCP Server ships with this plugin (`mcp-servers/domino_mcp_server/`)
+but must be registered once via Cline's MCP Servers settings — see the
+top-level README § Install. Once registered it starts automatically for
+every session.
 
 - **Inside a Domino workspace:** Authentication and project detection are fully automatic.
-- **Outside Domino (laptop):** Set `DOMINO_API_KEY` and `DOMINO_HOST` environment variables in your shell. See [SETUP.md](./SETUP.md) for details.
+- **Outside Domino (laptop):** Configure `~/.domino/.env` with `DOMINO_API_KEY`/`DOMINO_HOST` (or the multi-cluster `DOMINO_CLUSTERS` form). See [SETUP.md](./SETUP.md) for details.
 
 ## Related Documentation
 

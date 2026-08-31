@@ -480,6 +480,9 @@ Before writing or verifying any API call, use the cluster swagger to confirm cur
 **Get the cluster base URL:** `$DOMINO_API_HOST` (injected by Domino into every workspace, job, and app).
 
 Fetch the NetApp Volumes swagger spec (requires bearer token):
+
+**Inside a Domino workspace/job/app** — `localhost:8899/access-token` is
+reachable, so the JWT-derived `CLUSTER_URL` approach below works:
 ```bash
 TOKEN=$(curl -s http://localhost:8899/access-token)
 # The swagger UI is only accessible via the external cluster URL (not $DOMINO_API_HOST).
@@ -493,6 +496,12 @@ print(re.sub(r'/auth/realms/.*', '', json.loads(base64.b64decode(p))['iss']))
 curl -H "Authorization: Bearer $TOKEN" "$CLUSTER_URL/domino-netapp-volumes/swagger/doc.json"
 # Browser UI (must be logged in): $CLUSTER_URL/domino-netapp-volumes/swagger/index.html
 ```
+
+**From Cline on the laptop** — `localhost:8899` doesn't exist outside a
+workspace, so this JWT-derived flow doesn't apply. Resolve the cluster host
+via the `list_domino_clusters` MCP tool instead, and use API-key auth
+(`X-Domino-Api-Key`) against that host for any authenticated NetApp Volumes
+calls.
 
 **Public docs (workflow context and field explanations):**
 - [NetApp Volumes REST API Reference](https://docs.dominodatalab.com/en/cloud/api_guide/b3b2a1/domino-netapp-volumes-api/)

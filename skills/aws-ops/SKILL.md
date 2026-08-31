@@ -75,7 +75,7 @@ above:
 1. Complete the task using general AWS CLI knowledge — the same
    `okta-aws` auth applies to every service.
 2. Afterward, append a new `## <ServiceName>` section to **this file**
-   (`~/repos/domino-cline-plugin/skills/aws-ops/SKILL.md`) documenting the
+   (the `aws-ops` skill's `SKILL.md`, wherever this repo is cloned) documenting the
    commands used, what they're for, and anything Domino-specific learned
    along the way (bucket naming conventions, tags, cluster-specific
    quirks, etc.) — follow the format of the existing sections.

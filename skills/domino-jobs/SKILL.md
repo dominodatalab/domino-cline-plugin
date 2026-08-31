@@ -186,10 +186,13 @@ Files written to `/mnt/` directories are available after job completion:
 - `/mnt/artifacts/` - Model artifacts
 
 ### Job Logs
-View logs in Domino UI or via API:
+View logs in Domino UI, or fetch stdout via API (reusing the `TOKEN`/`BASE`/
+`headers` from "Via Python (requests)" above):
 ```python
-# Get job logs
-logs = domino.runs_get_logs(run_id)
+logs = requests.get(
+    f"{BASE}/v1/projects/{owner}/{project}/run/{run_id}/stdout",
+    headers=headers,
+).json()["stdout"]
 print(logs)
 ```
 
@@ -269,15 +272,23 @@ with open("/mnt/artifacts/metrics.json", "w") as f:
 
 ### Check Status via API
 ```python
-status = domino.runs_status(run_id)
+status = requests.get(
+    f"{BASE}/v1/projects/{owner}/{project}/runs/{run_id}",
+    headers=headers,
+).json()
 print(f"Status: {status['status']}")
 print(f"Started: {status['startedAt']}")
 ```
 
 ### Stop a Running Job
 ```python
-domino.runs_stop(run_id)
+requests.post(
+    f"{BASE}/v1/projects/{owner}/{project}/runs/{run_id}/stop",
+    headers=headers,
+)
 ```
+Verify the stop endpoint against the live swagger before relying on it — it
+wasn't smoke-tested as part of this fix (see "API Reference" above).
 
 ## Troubleshooting
 

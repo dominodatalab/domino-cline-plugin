@@ -13,7 +13,7 @@ which paths work and which don't.
 | Leg | What it proves | Primary command(s) |
 |---|---|---|
 | 1. REST API | You can reach the platform's API and your key is valid | MCP tools below |
-| 2. Teleport | You can reach the cluster's Kubernetes control plane | `tsh status`, `tsh kube ls` |
+| 2. Teleport | You can reach the cluster's Kubernetes control plane | `scripts/domino-tsh` (see domino-teleport) |
 | 3. AWS | You can inspect the underlying infra (EKS/S3/EFS/CloudWatch) | `aws sts get-caller-identity` |
 
 ## Leg 1 — REST API
@@ -38,18 +38,17 @@ server-side so the key never enters the conversation.
 ## Leg 2 — Teleport / kubectl
 
 ```text
-1. `tsh status`        — confirm a session exists and which proxy it's on.
-2. `tsh kube ls`       — confirm the target kube cluster is listed.
-3. `kubectl cluster-info` — quick end-to-end check that the context resolves.
+1. `scripts/domino-tsh resolve <alias>` — which proxy/binary would be used
+   (also surfaces a missing-config or no-compatible-binary error early).
+2. `<that binary> status`  — confirm a session exists and which proxy it's on.
+3. `<that binary> kube ls` — confirm the target kube cluster is listed.
+4. `kubectl cluster-info`  — quick end-to-end check that the context resolves.
 
-Not logged in -> prompt:
-    tsh login --proxy=dominodatalab.teleport.sh:443   (6.3+ clusters)
-    tsh7 login --proxy=dev-teleport.domino.tech:443   (6.2 clusters)
-    then: tsh kube login <teleport-cluster-name>      (both steps required)
+Not logged in -> `scripts/domino-tsh login <alias>` (handles picking the
+right tsh version and both required steps — login, then kube login).
 
 Cluster not listed -> wrong proxy, wrong teleport_cluster_name, or your role
-has no kube access for it. See the `domino-teleport` skill for the registry
-and the version -> proxy/binary mapping.
+has no kube access for it. See the `domino-teleport` skill for the registry.
 ```
 
 ## Leg 3 — AWS infrastructure
@@ -69,7 +68,7 @@ to re-auth **that specific path** — don't assume the failure is something else
 and start debugging blind:
 
 - API 401/403      -> regenerate key, update `~/.domino/.env`
-- Teleport expired -> `tsh login` / `tsh7 login` (+ `tsh kube login`)
+- Teleport expired -> `scripts/domino-tsh login <alias>`
 - AWS expired      -> `okta-aws`
 
 Only after the credential/session is confirmed valid should you investigate

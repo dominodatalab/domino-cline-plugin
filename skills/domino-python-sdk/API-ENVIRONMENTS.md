@@ -9,7 +9,11 @@ import requests, os
 
 TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
 headers = {"Authorization": f"Bearer {TOKEN}"}
+
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected:
 base_url = os.environ["DOMINO_API_HOST"]
+# From Cline on the laptop, that env var isn't set — resolve the cluster's
+# host via the `list_domino_clusters` MCP tool instead and use it as base_url.
 ```
 
 ---

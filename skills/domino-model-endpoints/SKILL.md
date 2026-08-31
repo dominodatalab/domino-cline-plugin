@@ -90,11 +90,16 @@ def predict(features):
 ### 3. Call the Endpoint
 
 ```bash
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected:
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -d '{"data": {"features": [1.0, 2.0, 3.0]}}' \
   "$DOMINO_API_HOST/models/abc123/latest/model"
+
+# From Cline on the laptop, that env var isn't set — resolve the cluster's
+# host via the `list_domino_clusters` MCP tool instead, then substitute it
+# for $DOMINO_API_HOST above.
 ```
 
 ## Environment Variables

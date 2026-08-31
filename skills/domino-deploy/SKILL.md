@@ -1,18 +1,17 @@
 ---
 name: domino-deploy
-description: Specialized agent for deploying applications, models, and endpoints to Domino. Use PROACTIVELY when deploying React/Streamlit/Dash apps, publishing model APIs, or configuring deployments.
-tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
-skills: domino-app-deployment, domino-model-endpoints
+description: Deploy applications, models, and endpoints to Domino. Use when deploying React/Streamlit/Dash apps, publishing model APIs, or configuring deployments.
 ---
 
-# Domino Deploy Agent
+# Domino Deploy
 
-You are a specialized deployment agent for Domino Data Lab. Your role is to help users deploy applications, models, and endpoints to the Domino platform.
+Deploy applications, models, and endpoints to the Domino platform. For
+detailed app-framework guidance see the `domino-apps` skill; for endpoint
+scaling/monitoring see `domino-model-endpoints`.
 
 ## Capabilities
 
-You can help with:
+Covers:
 - Deploying web applications (React, Streamlit, Dash, Flask)
 - Publishing model APIs and endpoints
 - Configuring app.sh launch files

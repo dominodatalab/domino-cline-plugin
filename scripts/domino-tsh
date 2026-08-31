@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Version-agnostic Teleport (tsh) dispatcher for Domino clusters.
+
+Problem this solves: Domino's Teleport instances span multiple Teleport
+major versions (an old dev instance, a current production instance, and
+potentially others over time), and Teleport strictly enforces that a `tsh`
+client be the same major version as the server, or at most one behind. That
+means whoever runs this needs more than one `tsh` binary installed — but
+what those binaries are *named* is a personal choice (this repo's author
+happened to call theirs `tsh7`), and hardcoding that name would break for
+anyone who set theirs up differently.
+
+So this script assumes NOTHING about binary names. Instead it:
+  1. Finds candidate tsh-like binaries on $PATH (or an explicit override).
+  2. Asks each candidate its own version (`<bin> version`).
+  3. Asks the target Teleport proxy its own required version, via the same
+     unauthenticated discovery endpoint (`/v1/webapi/ping`) that stock `tsh`
+     itself queries during login.
+  4. Picks whichever installed candidate satisfies Teleport's own
+     compatibility rule (client major == server major, or one behind).
+  5. Runs the login (and `kube login`) using that binary.
+
+If nothing installed qualifies, it says exactly what's missing rather than
+guessing. No naming convention is required from any user for this to work.
+
+Per-cluster config lives in ~/.domino/.env (same file domino_mcp_server.py
+reads), as TELEPORT_PROXY_<ALIAS> (required) and TELEPORT_CLUSTER_NAME_<ALIAS>
+(optional, defaults to the alias) — see the domino-teleport skill.
+
+Usage:
+    domino-tsh login <alias>     # tsh login + tsh kube login, version-matched
+    domino-tsh resolve <alias>   # show which binary/version would be used, no login
+"""
+
+import json
+import os
+import re
+import shutil
+import ssl
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Optional
+
+ENV_CANDIDATES = (
+    Path.home() / ".domino" / ".env",
+    Path.home() / ".env",
+    Path(__file__).resolve().parent.parent / "mcp-servers" / "domino_mcp_server" / ".env",
+)
+
+
+def _load_env() -> None:
+    """Minimal .env loader (no python-dotenv dependency — this script must
+    run standalone with just the stdlib)."""
+    for path in ENV_CANDIDATES:
+        if not path.is_file():
+            continue
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+        return
+
+
+def _env_key(alias: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "_", alias).upper()
+
+
+def _cluster_config(alias: str) -> tuple[str, str]:
+    key = _env_key(alias)
+    proxy = os.environ.get(f"TELEPORT_PROXY_{key}")
+    if not proxy:
+        sys.exit(
+            f"No TELEPORT_PROXY_{key} set for cluster '{alias}'. Add it to "
+            f"~/.domino/.env — see the domino-teleport skill's cluster registry."
+        )
+    kube_cluster_name = os.environ.get(f"TELEPORT_CLUSTER_NAME_{key}", alias)
+    return proxy, kube_cluster_name
+
+
+def _candidate_binaries() -> list[str]:
+    """Names/paths of tsh-like binaries to probe. Override with
+    DOMINO_TSH_CANDIDATES (comma-separated) for anything exotic; otherwise
+    scan $PATH for anything containing "tsh" in its name — catches `tsh`,
+    `tsh7`, `tsh-legacy`, or whatever anyone else happens to call theirs.
+    """
+    override = os.environ.get("DOMINO_TSH_CANDIDATES")
+    if override:
+        return [c.strip() for c in override.split(",") if c.strip()]
+
+    seen: set[str] = set()
+    found: list[str] = []
+    for dir_ in os.environ.get("PATH", "").split(os.pathsep):
+        try:
+            entries = os.listdir(dir_)
+        except OSError:
+            continue
+        for name in entries:
+            if "tsh" not in name.lower():
+                continue
+            full = os.path.join(dir_, name)
+            if name in seen or not os.access(full, os.X_OK) or os.path.isdir(full):
+                continue
+            seen.add(name)
+            found.append(name)
+    return found
+
+
+def _client_major_version(binary: str) -> Optional[int]:
+    path = shutil.which(binary)
+    if not path:
+        return None
+    try:
+        out = subprocess.run(
+            [binary, "version"], capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    combined = f"{out.stdout}\n{out.stderr}"
+    m = re.search(r"Teleport\s+v(\d+)\.", combined)
+    return int(m.group(1)) if m else None
+
+
+def _server_major_version(proxy: str) -> int:
+    host = proxy.split(":")[0]
+    url = f"https://{host}/v1/webapi/ping"
+    try:
+        with urllib.request.urlopen(url, timeout=10, context=ssl.create_default_context()) as resp:
+            data = json.loads(resp.read())
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+        sys.exit(f"Could not reach {url} to determine the required tsh version: {exc}")
+    version = data.get("server_version")
+    if not version:
+        sys.exit(f"{url} responded but didn't include server_version: {data}")
+    return int(version.split(".")[0])
+
+
+def _select_binary(proxy: str) -> tuple[str, int, int]:
+    """Returns (binary_name, client_major, server_major), or exits with a
+    clear message if nothing installed is compatible."""
+    server_major = _server_major_version(proxy)
+    checked: dict[str, Optional[int]] = {}
+    compatible: list[tuple[str, int]] = []
+    for candidate in _candidate_binaries():
+        major = _client_major_version(candidate)
+        checked[candidate] = major
+        if major is not None and major in (server_major, server_major - 1):
+            compatible.append((candidate, major))
+
+    if not compatible:
+        lines = [
+            f"No installed tsh-like binary is compatible with {proxy} "
+            f"(needs major version {server_major} or {server_major - 1}).",
+            "Checked:" if checked else "No tsh-like binaries found on $PATH "
+            "(nothing with 'tsh' in its name).",
+        ]
+        for name, major in checked.items():
+            lines.append(f"  {name}: v{major}" if major else f"  {name}: (couldn't determine version)")
+        lines.append(
+            f"Install a Teleport {server_major}.x client, or set "
+            f"DOMINO_TSH_CANDIDATES if it's already installed under a name "
+            f"this scan didn't catch."
+        )
+        sys.exit("\n".join(lines))
+
+    # Prefer the closest match to the server's own version (same major over one-behind).
+    compatible.sort(key=lambda pair: abs(server_major - pair[1]))
+    binary, client_major = compatible[0]
+    return binary, client_major, server_major
+
+
+def cmd_resolve(alias: str) -> None:
+    proxy, kube_cluster_name = _cluster_config(alias)
+    binary, client_major, server_major = _select_binary(proxy)
+    print(f"cluster:      {alias}")
+    print(f"proxy:        {proxy} (Teleport v{server_major}.x)")
+    print(f"kube cluster: {kube_cluster_name}")
+    print(f"tsh binary:   {binary} (v{client_major}.x)")
+
+
+def cmd_login(alias: str) -> None:
+    proxy, kube_cluster_name = _cluster_config(alias)
+    binary, client_major, server_major = _select_binary(proxy)
+    print(f"Using {binary} (v{client_major}.x) for {proxy} (v{server_major}.x)")
+    subprocess.run([binary, "login", f"--proxy={proxy}"], check=True)
+    subprocess.run([binary, "kube", "login", kube_cluster_name], check=True)
+
+
+def main() -> None:
+    _load_env()
+    if len(sys.argv) != 3 or sys.argv[1] not in ("login", "resolve"):
+        sys.exit(f"Usage: {sys.argv[0]} <login|resolve> <cluster-alias>")
+    (cmd_login if sys.argv[1] == "login" else cmd_resolve)(sys.argv[2])
+
+
+if __name__ == "__main__":
+    main()

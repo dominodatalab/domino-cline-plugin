@@ -46,19 +46,30 @@ Credentials go in `~/.domino/.env` (see README § Install).
 ```text
 domino-cline-plugin/
 ├── skills/                         # Cline-native skills (SKILL.md with name/description frontmatter)
+├── workflows/                      # Cline Workflows — explicit /slash-command-invoked step sequences
 ├── mcp-servers/domino_mcp_server/  # Domino REST API MCP server (jobs, file sync, access check)
 ├── hooks/                          # Cline hooks — exactly one executable file per event
-└── scripts/                        # helper scripts (optional)
+└── scripts/                        # domino-tsh (Teleport version dispatch), test.sh
 ```
 
 Differences from Claude Code, deliberately:
 
 - **No `plugin.json` manifest** — Cline discovers skills by scanning
   `~/.cline/skills/` (symlinked from `skills/` here).
-- **No `commands/` or `agents/` directories** — Cline has no sub-agent
-  mechanism, so upstream agents/commands are wrapped as ordinary skills
-  (`domino-debug`, `domino-deploy`, `domino-setup`; `domino-app-init`,
-  `domino-debug-proxy`, `domino-experiment-setup`, `domino-trace-setup`).
+- **No `agents/` directory** — Cline has no sub-agent spawning mechanism, so
+  upstream agents are wrapped as ordinary auto-routed skills (`domino-debug`,
+  `domino-deploy`, `domino-setup`) with the Claude Code sub-agent frontmatter
+  (`tools:`/`model:`/`skills:`) dropped.
+- **`commands/` → `workflows/`** — Cline's native equivalent of Claude Code
+  slash commands is Workflows (`.md` files in `workflows/`, symlinked into
+  `~/Documents/Cline/Workflows/` or a project's `.clinerules/workflows/`),
+  not skills. The four upstream commands (`domino-app-init`,
+  `domino-debug-proxy`, `domino-experiment-setup`, `domino-trace-setup`) live
+  there, invoked the same way (`/domino-app-init`, etc.) — they were
+  originally ported into `skills/` with `/command`-shaped bodies left intact,
+  which doesn't match how Cline skills actually trigger (auto-routed from
+  description, not typed); moving them to `workflows/` is the correct fix,
+  not just a rename.
 - **No `output-styles/`** — Cline has no swappable-persona mechanism.
 
 ## Contribution Guidelines
@@ -87,6 +98,21 @@ Detailed description of the skill...
    pattern, host env vars, no `python-domino` SDK, verified endpoints,
    smoke-tested payloads
 
+### Adding a New Workflow
+
+Use `workflows/`, not `skills/`, when the content is an explicit multi-step
+procedure the user invokes on demand (the Claude Code slash-command shape),
+rather than something that should auto-trigger from conversation context.
+
+1. Create `workflows/domino-your-workflow.md` — plain markdown, no
+   frontmatter required. Open with a one-line description of what it does
+   and how to invoke it (`/domino-your-workflow`).
+2. Symlink it so Cline discovers it:
+   `ln -sfn "$(pwd)/workflows/domino-your-workflow.md" ~/Documents/Cline/Workflows/domino-your-workflow.md`
+   (global) or into a project's `.clinerules/workflows/` (project-scoped).
+3. Follow the same [Skill Authoring Standards](#skill-authoring-standards) as
+   skills for any Domino API calls the workflow's steps make.
+
 ### Editing the MCP server
 
 `mcp-servers/domino_mcp_server/domino_mcp_server.py` is a FastMCP server. Add
@@ -100,6 +126,15 @@ Cline runs exactly one executable file per event, named after the event
 (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `PreCompact`,
 `PostToolUseFailure`, `PostToolBatch`) — there is no per-tool `matcher` config.
 Extend the single `hooks/<EventName>` file rather than adding per-tool files.
+
+### Editing `scripts/domino-tsh`
+
+Stdlib-only Python (no dependencies, so it runs standalone without a venv).
+It assumes nothing about tsh binary names — don't reintroduce a hardcoded
+name anywhere in this repo's docs or scripts; if you need to add another
+Teleport instance, add its alias's `TELEPORT_PROXY_<ALIAS>` to
+`~/.domino/.env` and it works with whatever's already installed, or a clear
+error if nothing compatible is.
 
 ## Skill Authoring Standards
 
@@ -213,6 +248,36 @@ clean-up steps) in the PR description.
 
 If a PR removes lines from `.gitignore`, justify it in the PR description.
 Accidental removals of existing rules will be flagged in review.
+
+### 7. Don't assume workspace-only env vars are set
+
+`$DOMINO_API_HOST` (and similarly `DOMINO_PROJECT_ID`, `DOMINO_PROJECT_OWNER`,
+etc.) are injected **only inside a Domino workspace/job/app** — not when
+Cline is running on the user's laptop, which is this plugin's primary
+context. Any example meant to be run directly (not just shown as in-workspace
+sample code) that uses one of these env vars must also show the laptop-side
+alternative — for `$DOMINO_API_HOST` specifically, resolving the target
+cluster's host via the `list_domino_clusters` MCP tool (`domino_mcp_server`).
+
+Don't (breaks silently from Cline on the laptop, only works in-workspace):
+
+```bash
+curl "$DOMINO_API_HOST/assets/public-api.json"
+```
+
+Do (works either way):
+
+```bash
+# Inside a workspace/job/app, $DOMINO_API_HOST is auto-injected:
+curl "$DOMINO_API_HOST/assets/public-api.json"
+# From Cline on the laptop, resolve the host via list_domino_clusters instead:
+curl "<cluster_host>/assets/public-api.json"
+```
+
+Found 2026-08-27: six skills' swagger-fetch examples assumed
+`$DOMINO_API_HOST` unconditionally and would have silently failed from Cline
+on the laptop — the exact kind of assumption-driven debug loop this whole
+plugin exists to avoid.
 
 ## Code Style
 

@@ -221,6 +221,9 @@ Confirm endpoint paths and field names against the cluster swagger before
 relying on any call (see [SKILL.md](./SKILL.md#documentation-reference)):
 
 ```bash
+# $DOMINO_API_HOST is workspace/job/app-only. From Cline on the laptop,
+# resolve the cluster's host via `list_domino_clusters` instead — see
+# SKILL.md's Documentation Reference section linked above.
 curl -H "Authorization: Bearer $TOKEN" \
   "$DOMINO_API_HOST/api/taxonomy/swagger/doc.json"
 ```

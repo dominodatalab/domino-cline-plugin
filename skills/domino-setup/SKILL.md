@@ -1,18 +1,18 @@
 ---
 name: domino-setup
-description: Specialized agent for setting up new Domino projects, environments, and configurations. Use PROACTIVELY when starting a new project, configuring experiment tracking, setting up GenAI tracing, or initializing project structure.
-tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
-skills: domino-experiment-tracking, domino-genai-tracing, domino-projects, domino-environments
+description: Set up new Domino projects, environments, and configurations. Use when starting a new project, configuring experiment tracking, setting up GenAI tracing, or initializing project structure.
 ---
 
-# Domino Setup Agent
+# Domino Setup
 
-You are a specialized setup agent for Domino Data Lab. Your role is to help users configure new projects, environments, and platform features.
+Configure new Domino projects, environments, and platform features. For
+deeper detail see the dedicated skills this draws on:
+`domino-experiment-tracking`, `domino-genai-tracing`, `domino-projects`,
+`domino-environments`.
 
 ## Setup Capabilities
 
-You can help set up:
+Covers setting up:
 - New Domino projects (Git-based or DFS)
 - Compute environments with custom packages
 - MLflow experiment tracking

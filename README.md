@@ -9,20 +9,22 @@ server.
 
 ## What's here
 
-- `skills/` — 31 Cline-native skills (`SKILL.md` with `name:`/`description:`
+- `skills/` — 30 Cline-native skills (`SKILL.md` with `name:`/`description:`
   frontmatter). Cline auto-routes to these by description; no manual
   invocation needed. Includes:
   - 23 platform skills (deploying apps, jobs, experiment tracking, etc.)
   - 3 skills adapted from specialized agents (domino-debug, domino-deploy,
     domino-setup) — Cline has no sub-agent spawning mechanism, so these are
-    auto-routed/slash-invokable skills rather than isolated agent contexts
-  - 4 skills adapted from slash commands (domino-app-init,
-    domino-debug-proxy, domino-experiment-setup, domino-trace-setup) — also
-    usable as literal `/domino-app-init` etc. slash commands in Cline
+    auto-routed skills rather than isolated agent contexts. Their content is
+    unchanged from the underlying agent knowledge; only the Claude Code
+    sub-agent frontmatter (`tools:`/`model:`/`skills:`) was dropped, since
+    Cline's skill spec is just `name:`/`description:`.
   - 4 platform-ops/reference skills:
-    - `domino-teleport` — Teleport (`tsh`/`tsh7`) login + kubectl access to
-      Domino's Kubernetes clusters, keyed by the same cluster aliases as
-      `~/.domino/.env`'s `DOMINO_CLUSTERS`
+    - `domino-teleport` — Teleport login + kubectl access to Domino's
+      Kubernetes clusters via `scripts/domino-tsh`, keyed by the same
+      cluster aliases as `~/.domino/.env`'s `DOMINO_CLUSTERS`. See
+      "Teleport version dispatch" below — no tsh binary naming convention
+      required.
     - `domino-access` — standard access-check protocol (REST API → Teleport →
       AWS, in that order) with re-auth prompts when a credential/session
       expires
@@ -36,6 +38,18 @@ server.
       via `domino-teleport`'s registry. Complements (doesn't replace) the
       standing "verify against the live swagger/docs before implementing"
       behavior in the global Cline rule — see "Docs & swagger" below.
+- `workflows/` — 4 Cline Workflows (`domino-app-init`, `domino-debug-proxy`,
+  `domino-experiment-setup`, `domino-trace-setup`), ported from the upstream
+  Claude Code plugin's slash commands. Cline Workflows are the native
+  equivalent of Claude Code slash commands — explicit, one-shot, multi-step
+  instructions invoked as `/domino-app-init` etc. (as opposed to `skills/`,
+  which auto-trigger from the conversation and persist as standing context).
+  See "Install" below for how these get registered; unlike skills they are
+  *not* auto-routed.
+- `rules/domino.md` — the global Cline rule referenced throughout this
+  README (verify-before-implementing, multi-cluster discipline, the 3-leg
+  access-check protocol). Ships here so it's reproducible instead of living
+  only on one person's machine; see "Install" below.
 - `mcp-servers/domino_mcp_server/` — MCP server wrapping the Domino REST API
   (run jobs, check status, sync files to DFS projects, check cluster access).
 - `hooks/PostToolUse` — a single PostToolUse hook (app.sh binds to `0.0.0.0`,
@@ -61,6 +75,22 @@ for d in skills/*/; do
 done
 ```
 
+**Workflows** (global, invoked explicitly as `/domino-app-init` etc.):
+
+```bash
+for f in workflows/*.md; do
+  ln -sfn "$(pwd)/$f" ~/Documents/Cline/Workflows/"$(basename "$f")"
+done
+```
+
+**Global Cline rule** (tells Cline how to use the skills/MCP tools together —
+verify-before-implementing, multi-cluster discipline, the 3-leg access-check
+protocol; see `rules/domino.md` for the full content):
+
+```bash
+ln -sfn "$(pwd)/rules/domino.md" ~/Documents/Cline/Rules/domino.md
+```
+
 **MCP server** (Domino REST API access) — add via Cline's MCP settings UI:
 
 ```json
@@ -74,15 +104,37 @@ done
 }
 ```
 
-Then fill in `~/.domino/.env` (next to your existing Domino CLI data). It supports
-either a single Domino instance (`DOMINO_API_KEY`/`DOMINO_HOST`) or several
+Then copy [`domino.env.example`](./domino.env.example) to `~/.domino/.env`
+(next to your existing Domino CLI data) and fill it in. It supports either a
+single Domino instance (`DOMINO_API_KEY`/`DOMINO_HOST`) or several
 (`DOMINO_CLUSTERS=alias1,alias2` + per-alias `DOMINO_HOST_<ALIAS>`/
-`DOMINO_API_KEY_<ALIAS>`) — see the comments in that file. Every
+`DOMINO_API_KEY_<ALIAS>`) — see the comments in that template. Every
 domino_server tool takes an optional `cluster` argument matching one of
 those aliases; a `list_domino_clusters` tool reports what's configured, and
-the global Cline rule (`~/Documents/Cline/Rules/domino.md`) tells Cline to
+the global Cline rule (`rules/domino.md`, installed above) tells Cline to
 call it before assuming which instance to target when more than one is
 set up.
+
+## Optional: Atlassian/Confluence MCP
+
+Not part of this plugin, but referenced by the `domino-docs` skill and
+`rules/domino.md` for internal engineering/ops lookups (Fleetcommand,
+Teleport setup, ENG-space runbooks) that aren't in the public product docs.
+If you want it:
+
+1. In Cline's MCP Servers settings, add a new **remote server** (transport:
+   Streamable HTTP), named e.g. `Domino Atlassian`.
+2. URL: `https://mcp.atlassian.com/v1/mcp/authv2` — this is Atlassian's own
+   hosted [Remote MCP Server](https://www.atlassian.com/platform/remote-mcp-server)
+   (covers Jira, Confluence, and Compass).
+3. Save. Cline opens a browser tab for Atlassian SSO — log in with your
+   `dominodatalab.com` account and approve the OAuth consent screen.
+
+This grants read/write access to Jira/Confluence/Compass under your account
+via a long-lived OAuth refresh token stored in Cline's local settings. If
+you ever need to revoke it, do so from Atlassian's own
+[account security / authorized apps page](https://id.atlassian.com/manage-profile/security),
+not just by removing the server from Cline.
 
 ## Hooks
 
@@ -105,6 +157,38 @@ unambiguous. Always exits 0 (never blocks).
 
 Install: `ln -sfn "$(pwd)/hooks/PostToolUse" ~/Documents/Cline/Hooks/PostToolUse`
 (global) or copy to `.clinerules/hooks/PostToolUse` per-project.
+
+## Teleport version dispatch
+
+`scripts/domino-tsh` picks the right `tsh` binary for a cluster with **no
+naming convention required from anyone**. Domino's Teleport instances span
+multiple Teleport major versions, and Teleport strictly requires the client
+be the same major version as the server (or one behind) — so more than one
+`tsh` binary needs to be installed. This repo's author happened to name
+theirs `tsh7`; hardcoding that would break for the next person.
+
+Instead the script: finds candidate tsh-like binaries on `$PATH` (anything
+with "tsh" in the name, or an explicit `DOMINO_TSH_CANDIDATES` override),
+asks each its own version, asks the target proxy its required version via
+Teleport's own unauthenticated discovery endpoint (`/v1/webapi/ping` — the
+same one stock `tsh` itself queries during login), and picks whichever
+installed binary is compatible. Verified against both real Domino Teleport
+proxies (dev: v7.x, prod: v18.x) — it correctly selects a v7.x vs. v18.x
+client in each case, with no configuration beyond the proxy address.
+
+Per-cluster config lives in `~/.domino/.env`: `TELEPORT_PROXY_<ALIAS>`
+(required) and `TELEPORT_CLUSTER_NAME_<ALIAS>` (optional). The tsh
+*version* isn't tracked per cluster at all — the script asks the proxy
+live, so it can't go stale if a Teleport instance gets upgraded.
+
+Teleport does have a first-party fix for this entire class of problem —
+[Client Tool Managed Updates](https://goteleport.com/docs/upgrading/client-tools-managed-updates/),
+where `tsh` auto-downloads and re-execs the version a cluster needs. Not
+usable here: it requires server-side enablement (`tctl autoupdate
+client-tools enable`, an admin action) and the old dev instance predates
+the feature. Worth raising with whoever administers Domino's Teleport
+instances as a long-term fix; `domino-tsh` is the client-side workaround
+until/unless that happens.
 
 ## Docs & swagger
 
@@ -166,13 +250,20 @@ against the live swagger either way — see "Docs & swagger" above.
 ## Testing
 
 The test suite (`pytest`) enforces the Skill Authoring Standards statically
-across all `skills/*/*.md` files and functionally tests the MCP server's
-credential loading + `check_domino_api_access` tool.
+across all `skills/*/*.md` files, functionally tests the MCP server's
+credential loading + `check_domino_api_access` tool, and functionally tests
+`domino-tsh`'s version-selection logic (env/config parsing, candidate
+discovery, client/server version parsing, and the compatibility rule
+itself — including this repo's own real dev/prod split as a case). The
+network- and subprocess-touching parts are mocked in the test suite; the
+actual live network behavior against both real Domino Teleport proxies was
+verified manually (see "Teleport version dispatch" above), not just under
+test.
 
 ```bash
 scripts/test.sh            # from the repo root
-# or, from anywhere on your Mac (any cwd), by absolute path:
-/Users/michaelsnyder/repos/domino-cline-plugin/scripts/test.sh
+# or, from anywhere (any cwd), by absolute path:
+/absolute/path/to/domino-cline-plugin/scripts/test.sh
 # or, from the repo root, without the wrapper:
 ./mcp-servers/domino_mcp_server/.venv/bin/python -m pytest
 ```

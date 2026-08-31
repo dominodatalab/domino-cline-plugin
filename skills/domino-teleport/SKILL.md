@@ -1,62 +1,66 @@
 ---
 name: domino-teleport
-description: Access a Domino cluster's Kubernetes control plane via Teleport (tsh/tsh7) and kubectl. Use when connecting to a Domino cluster's Kubernetes layer, running kubectl against Domino infrastructure, or diagnosing Teleport login/version errors.
+description: Access a Domino cluster's Kubernetes control plane via Teleport and kubectl, using scripts/domino-tsh to auto-select the right tsh binary version. Use when connecting to a Domino cluster's Kubernetes layer, running kubectl against Domino infrastructure, or diagnosing Teleport login/version errors.
 ---
 
 # Domino Teleport Access
 
 Domino's Kubernetes clusters (EKS) are reached via Teleport, not directly
-via `kubectl` or the AWS CLI. There are two incompatible Teleport
-environments, keyed by Domino version:
+via `kubectl` or the AWS CLI. Domino's Teleport instances span multiple
+Teleport major versions (an old dev instance, current production, possibly
+others over time), and Teleport strictly requires the `tsh` client be the
+same major version as the server, or at most one behind — so more than one
+`tsh` binary needs to be installed.
 
-| Domino version | Teleport proxy | Client binary |
-|---|---|---|
-| 6.2 | `dev-teleport.domino.tech` | `tsh7` (old client — separately installed) |
-| 6.3+ | `dominodatalab.teleport.sh` | `tsh` (current client) |
+**Don't hand-pick which `tsh` binary to run, and don't assume any particular
+binary name.** Use `scripts/domino-tsh` instead — it has no naming
+convention baked in: it finds whatever tsh-like binaries are actually
+installed, asks each its own version, asks the target proxy (via Teleport's
+own unauthenticated discovery endpoint) what version *it* requires, and
+picks whichever installed binary is compatible. This is deliberately
+unopinionated so the plugin works regardless of what anyone happens to have
+named their older client — it doesn't have to be `tsh7`.
 
-Fleetcommand-created dev deployments register with the dev instance.
-
-## Login sequence
-
-**Both steps are required** — running only `tsh login` (auth) without
-`tsh kube login` (kubectl context) is the most common failure mode:
+## Usage
 
 ```bash
-# 6.2 clusters
-tsh7 login --proxy=dev-teleport.domino.tech:443
-tsh7 kube login <cluster-name>
+# Login + kube context, version-matched automatically:
+/absolute/path/to/domino-cline-plugin/scripts/domino-tsh login <alias>
 
-# 6.3+ clusters
-tsh login --proxy=dominodatalab.teleport.sh:443
-tsh kube login <cluster-name>
+# See which binary/version it would use, without logging in:
+/absolute/path/to/domino-cline-plugin/scripts/domino-tsh resolve <alias>
 ```
 
-After both steps, `kubectl` targets that cluster normally.
+`login` runs both required steps (`tsh login` then `tsh kube login` —
+skipping the second is the most common failure mode with plain `tsh`, this
+script always does both). After that, `kubectl` targets the cluster
+normally.
+
+If it exits with "no installed tsh-like binary is compatible," that's not a
+bug to route around — it means the right client version genuinely isn't
+installed. It says which major version is needed; install that one.
 
 ## Cluster registry
 
-Same aliases as `~/.domino/.env`'s `DOMINO_CLUSTERS` —
-one name per Domino instance across both the REST API config and this
-skill. Fill in `domino_version` and `teleport_cluster_name` (the name
-Teleport registers the kube cluster under — may differ from the alias)
-for each; add a row here whenever a new alias is added to `DOMINO_CLUSTERS`.
+Same aliases as `~/.domino/.env`'s `DOMINO_CLUSTERS` — one name per Domino
+instance, shared across the REST API config and this script. Per alias:
 
-| alias | domino_version | teleport_cluster_name |
-|---|---|---|
-| marcdo126967 | _fill in_ | _fill in_ |
-| mikesn136713 | _fill in_ | _fill in_ |
+- `TELEPORT_PROXY_<ALIAS>` — **required**. The Teleport proxy for that
+  cluster (e.g. `dev-teleport.domino.tech:443`).
+- `TELEPORT_CLUSTER_NAME_<ALIAS>` — optional, defaults to the alias. Set it
+  if Teleport registers the kube cluster under a different name.
 
-> **TODO:** fill in `domino_version` and `teleport_cluster_name` above so
-> access checks can be automated. Until they're filled, the `domino-access`
-> skill will ask for these values when a Teleport leg is requested.
+Nothing about the *tsh version* is tracked here anymore — `domino-tsh`
+determines that live from the proxy each time, so it can't go stale if a
+Teleport instance gets upgraded later.
+
+If asked to access a cluster with no `TELEPORT_PROXY_<ALIAS>` set, ask which
+proxy it's on rather than guessing — logging into the wrong Teleport
+instance is a dead end, not a harmless mistake. `domino-tsh` will refuse
+with a clear error rather than guess, too.
 
 For the overall "do you have access to this cluster" workflow (REST API →
 Teleport → AWS, in that order), see the `domino-access` skill.
-
-If asked to access a cluster not in this table, ask which Domino version
-it runs (or its Teleport cluster name) rather than guessing which tsh
-binary/proxy to use — logging into the wrong Teleport instance is a dead
-end, not a harmless mistake.
 
 ## Common namespace shortcuts
 

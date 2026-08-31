@@ -232,6 +232,9 @@ Configure notification recipients:
 import requests, os
 
 TOKEN = requests.get("http://localhost:8899/access-token").text.strip()
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected. From
+# Cline on the laptop, that env var isn't set — resolve the cluster's host
+# via the `list_domino_clusters` MCP tool instead and use it as BASE.
 BASE = os.environ["DOMINO_API_HOST"]
 
 response = requests.post(

@@ -304,6 +304,9 @@ class ModelUser(HttpUser):
 
 Run test:
 ```bash
+# Inside a Domino workspace/job/app, $DOMINO_API_HOST is auto-injected. From
+# Cline on the laptop, that env var isn't set — resolve the cluster's host
+# via the `list_domino_clusters` MCP tool instead and pass it to --host.
 locust -f locustfile.py --host="$DOMINO_API_HOST"
 ```
 

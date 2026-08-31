@@ -8,7 +8,7 @@ description: Bootstrap or retrofit a Vite + React 18 + TypeScript project so it 
 This skill makes a project use the Domino design system correctly. It works in three contexts:
 
 - **Empty or non-existent directory** — scaffold a Vite + React 18 + TS project from scratch, then apply the Domino setup.
-- **Existing Vite + React project** — leave the project alone, retrofit just the Domino bits (deps, theme provider, MCP, `CLAUDE.md`).
+- **Existing Vite + React project** — leave the project alone, retrofit just the Domino bits (deps, theme provider, MCP, the `.clinerules/` project rule).
 - **Existing React project on a different bundler/setup** — flag the mismatch to the user, then proceed only with their direction.
 
 In all three cases, the skill executes the work end-to-end (runs commands, edits files), but it adapts to what's already there instead of overwriting blindly.
@@ -33,10 +33,10 @@ Treat these as invariants the project must satisfy by the end. How you get there
 Ask the user, in a single turn, for:
 
 1. **Target path** — the absolute or workspace-relative path where the Vite + React app will live ("the app folder"). Ask this as a plain chat question, not a multiple-choice picker, because paths are free-form.
-2. **Project root path** — where shared project config (`CLAUDE.md`, `.mcp.json`, `.claude/settings.local.json`) should live. Default to the target path; set this to a parent directory when the target is a subfolder of a larger repo (monorepos, an existing project with apps under `apps/`, etc.) — those files belong at the repo root, not nested inside the app folder. Ask explicitly; don't assume. If the user doesn't volunteer one, propose the target path and confirm.
-3. **Display name** — free-form, any string. Used in `CLAUDE.md`, UI titles, and the hand-off message. Example: `Domino Frontend`.
+2. **Project root path** — where shared project config (the `.clinerules/` project rule, see Step 10) should live. Default to the target path; set this to a parent directory when the target is a subfolder of a larger repo (monorepos, an existing project with apps under `apps/`, etc.) — those files belong at the repo root, not nested inside the app folder. Ask explicitly; don't assume. If the user doesn't volunteer one, propose the target path and confirm.
+3. **Display name** — free-form, any string. Used in the `.clinerules/` project rule, UI titles, and the hand-off message. Example: `Domino Frontend`.
 4. **Package name** — the value that goes in `package.json`'s `name` field. npm requires lowercase, no spaces, no leading dot or underscore, URL-safe. Default to the kebab-case-lowercase of the display name (e.g. `Domino Frontend` → `domino-frontend`) and confirm. If retrofitting, default to whatever the existing `package.json` says and confirm.
-5. **What to do if the path has unexpected content** — present this with `ask_user_input_v0` once you've inspected the directory (Step 2). The options depend on what you find; see Step 2.
+5. **What to do if the path has unexpected content** — ask the user directly, as a plain chat question, once you've inspected the directory (Step 2). The options depend on what you find; see Step 2.
 
 If the user has already given any of these in the conversation, skip the corresponding question. If they give only one name, treat it as the display name and derive the package name from it — don't ask twice for the same information, just confirm the normalized package name. Throughout the rest of this skill, "project root" means the path from question 2 (equal to the target path unless the user said otherwise) and "app folder" means the target path from question 1.
 
@@ -54,7 +54,8 @@ Look for:
   - Is `vite` a devDependency? Some other bundler (`webpack`, `next`, `parcel`, `cra`)?
   - Does `@dominodatalab/extensions-tools` already appear (any version)?
 - Is there a `src/` directory with `main.tsx` / `main.jsx` / `index.tsx` / `index.jsx`?
-- At the **project root** (from Step 1 — may equal the app folder, may not): is there an existing `.mcp.json`, `.claude/`, or `CLAUDE.md`? These live at the project root, not the app folder, so check there even when the app folder is a fresh empty subdirectory.
+- At the **project root** (from Step 1 — may equal the app folder, may not): is there an existing `.clinerules/` directory with a Domino-bootstrap rule file already in it? This lives at the project root, not the app folder, so check there even when the app folder is a fresh empty subdirectory.
+- Is the `storybook` MCP server already registered in Cline's MCP settings (global, not per-project — see Step 6)?
 
 Classify the directory into one of these states, then ask the user how to proceed if needed:
 
@@ -156,22 +157,26 @@ Likely failures:
 
 ## Step 6 — Register the Storybook MCP
 
-The Storybook MCP is what lets future Claude sessions look up real component props instead of guessing. Two files need to exist at the **project root** (from Step 1 — not the app folder if those are different paths) with the right shape; their exact formatting doesn't matter, but the contents do. They must sit in the same directory: if `.mcp.json` and `.claude/settings.local.json` get split across folders, Claude Code won't apply the allow-list to the registered MCP and the server stays disabled.
+The Storybook MCP is what lets future Cline sessions look up real component props instead of guessing.
 
-**`.mcp.json`** must register a server named `storybook` that points at the Domino library's live Storybook:
+Unlike Claude Code, Cline has no project-scoped MCP config file — MCP servers
+are registered **globally**, through Cline's MCP Servers settings UI, the
+same way this plugin's own `domino_server` MCP is registered (see this
+repo's README § Install). There's also no separate per-project
+permission/allow-list file to create; a registered server's tools are
+available (and its auto-approve list managed) from that same global settings
+UI.
+
+Register a server named `storybook` that points at the Domino library's live
+Storybook:
 
 - URL: `https://main--60c0de3f60dd96003bdcb1a1.chromatic.com/mcp`
-- Transport: `http`
+- Transport: Streamable HTTP
 
-If a `.mcp.json` already exists at the project root (with other MCP servers, or from a prior bootstrap), merge — don't overwrite. Add the `storybook` entry alongside whatever's there. If a `storybook` server is already registered at a different URL, ask the user before changing it. If no `.mcp.json` exists at the project root, create one there — never create one inside the app folder.
-
-**`.claude/settings.local.json`** must:
-
-- Pre-allow tools under the `mcp__storybook` namespace.
-- Enable project-level MCP servers (`enableAllProjectMcpServers: true`).
-- List `storybook` in the enabled servers.
-
-If the file already exists at the project root, merge the relevant fields rather than overwriting. Preserve any other permissions or settings already there. If it doesn't exist, create it at the project root (next to `.mcp.json`), not inside the app folder.
+Before adding it, check whether it's already registered (Step 2). If a
+`storybook` server already exists at a different URL, ask the user before
+changing it — don't overwrite silently. Once added via the settings UI, it
+connects immediately; no restart is needed.
 
 ---
 
@@ -227,7 +232,7 @@ Don't construct API URLs from `window.location.pathname` (`pathname.replace(/[^/
 - **Fresh scaffolds / starter screens you're generating:** write 8a and 8b in from the start. If the starter screen calls a backend, route it through `apiBase`.
 - **Retrofits:** add 8a if `base` is missing/`/`. For API calls, scan for `fetch('/`, `axios.get('/`, `new WebSocket('ws`, and any `pathname`-based URL construction. Surface root-absolute or pathname-based URLs and recommend the `document.baseURI` form — **don't silently rewrite their fetches** (some may intentionally target another host).
 
-This overlaps with the `dominodatalab:app-deployment` skill, which covers the full deploy shape (launch script, port binding, build output location). Point the user there for an actual app publish.
+This overlaps with the `domino-apps` skill, which covers the full deploy shape (launch script, port binding, build output location). Point the user there for an actual app publish.
 
 ---
 
@@ -258,7 +263,7 @@ This overrides the "don't remove existing CSS imports" line in Step 7 for the fr
 
 ### Components safe to use without an MCP query
 
-These are the components and prop shapes confirmed to work against the published `@dominodatalab/extensions-tools`. Use them for the starter screen without needing to consult the MCP. For anything beyond this set, query the Storybook MCP first (see the `CLAUDE.md` workflow in Step 10) — don't guess.
+These are the components and prop shapes confirmed to work against the published `@dominodatalab/extensions-tools`. Use them for the starter screen without needing to consult the MCP. For anything beyond this set, query the Storybook MCP first (see the `.clinerules/` project rule written in Step 10) — don't guess.
 
 | Component | Safe usage |
 |---|---|
@@ -272,13 +277,13 @@ These are the components and prop shapes confirmed to work against the published
 
 ### Watch out: `node_modules` README uses the Storybook alias
 
-`node_modules/@dominodatalab/extensions-tools/README.md` (and any code snippets it embeds) imports from `@domino/base-components` — that's the Storybook-internal alias, not the published package name. Even though `node_modules` reads as authoritative, **every import in this project must use `@dominodatalab/extensions-tools`**. The `CLAUDE.md` written in Step 10 reminds future sessions of this, but the starter screen is the first place it can go wrong.
+`node_modules/@dominodatalab/extensions-tools/README.md` (and any code snippets it embeds) imports from `@domino/base-components` — that's the Storybook-internal alias, not the published package name. Even though `node_modules` reads as authoritative, **every import in this project must use `@dominodatalab/extensions-tools`**. The `.clinerules/` rule written in Step 10 reminds future sessions of this, but the starter screen is the first place it can go wrong.
 
 ---
 
-## Step 10 — Write or update `CLAUDE.md`
+## Step 10 — Write or update the `.clinerules/` project rule
 
-The **project root** (from Step 1 — not the app folder if those are different paths) should have a `CLAUDE.md` that tells future Claude Code sessions four things:
+The **project root** (from Step 1 — not the app folder if those are different paths) should have a `.clinerules/domino-ui.md` file (Cline's project-scoped persistent-instructions mechanism — the equivalent of Claude Code's `CLAUDE.md`) that tells future Cline sessions four things:
 
 1. The npm package is `@dominodatalab/extensions-tools`. All imports in this project use that name.
 2. Storybook code snippets (and the `node_modules/@dominodatalab/extensions-tools/README.md`) import from `@domino/base-components` — that's a Storybook alias. Rewrite to `@dominodatalab/extensions-tools` before pasting.
@@ -291,7 +296,7 @@ The **project root** (from Step 1 — not the app folder if those are different 
 
 It should also describe the MCP lookup workflow (`list-all-documentation` → `get-documentation` → `get-documentation-for-story`), note that React 18 / react-router 5 versions are pinned for peer-dep reasons, and remind that all backend URLs route through `apiBase` (not root-absolute paths).
 
-If a `CLAUDE.md` already exists at the project root, **merge** rather than overwrite — preserve whatever project-specific guidance is there, and add a Domino section. The user's existing `CLAUDE.md` may have important info about their codebase that you'd erase by replacing it. If no `CLAUDE.md` exists at the project root, create one there — never inside the app folder, even when the app folder is a subdirectory of the project root.
+If a `.clinerules/` directory already exists at the project root, **add a new file** (e.g. `domino-ui.md`) rather than overwriting whatever's already there — `.clinerules/` is a directory of independent rule files, each individually toggleable in Cline's Rules panel, so there's no reason to merge into or replace an existing file. If no `.clinerules/` directory exists at the project root, create one there with this file inside it — never inside the app folder, even when the app folder is a subdirectory of the project root. `.clinerules/` is meant to be committed to version control (it's shared, team-visible project config), unlike Cline's per-user global settings.
 
 ---
 
@@ -305,14 +310,15 @@ The **app folder** (the target path from Step 1) needs a `.gitignore` that exclu
 - `*.log`, `npm-debug.log*`, `yarn-debug.log*`, `yarn-error.log*` — package manager logs.
 - `.DS_Store`, `Thumbs.db` — OS junk.
 - `.env`, `.env.local`, `.env.*.local` — local environment files. Keep `.env.example` if the project has one.
-- `.claude/settings.local.json` — this is the per-user MCP/permissions file. It can leak machine-specific paths and personal preferences. `.mcp.json` **should** be committed (it's shared project config); `.claude/settings.local.json` should not. Only add this entry when the project root equals the app folder — when they differ, `.claude/settings.local.json` lives at the project root (Step 6), so it belongs in *that* directory's `.gitignore`. Don't create or modify a project-root `.gitignore` for this; surface the missing entry to the user and let them decide.
+
+(Cline's MCP registration and settings are entirely global, not project-scoped, so unlike Claude Code's `.claude/settings.local.json` there's no per-user project file to ignore here. `.clinerules/` — the project rule from Step 10 — is meant to be committed.)
 
 **How to handle the file itself:**
 
 - If `.gitignore` doesn't exist, create it with the entries above.
 - If it already exists (Vite's scaffold writes one), read it first and **append only the entries that aren't already covered**. Don't duplicate lines and don't reorder what's there. A grep-and-append per missing entry is fine.
 - Preserve any project-specific patterns the user already has (their own ignored directories, secrets paths, build artifacts from other tools, etc.).
-- If the user has committed something this skill is now telling git to ignore (e.g., they checked in `node_modules` once by accident, or `.claude/settings.local.json` is already tracked), don't run `git rm` on their behalf — surface it and let them decide.
+- If the user has committed something this skill is now telling git to ignore (e.g., they checked in `node_modules` once by accident), don't run `git rm` on their behalf — surface it and let them decide.
 
 ---
 
@@ -359,11 +365,11 @@ Tell the user:
 
 - Where the project lives.
 - How to start the dev server.
-- That future component additions should go through the Storybook MCP (which the `CLAUDE.md` you wrote will remind the next Claude session about).
+- That future component additions should go through the Storybook MCP (which the `.clinerules/` project rule you wrote will remind the next Cline session about).
 - Anything that changed in their existing code (downgraded versions, swapped router, edited entry point) so they're not surprised.
 - **Bundle-size warning is expected.** Vite emits a `>500 KB chunk` warning on build because the Domino component library bundles a lot. It's not a failure — don't chase it.
 - **Port 8888 is reserved inside Domino workspaces.** If the user runs both a Vite dev server and a backend dev server inside a Domino workspace, port 8888 is occupied by code-server. Pick a different port for one of them.
-- **Next step toward a deployable app:** suggest that the user create an `app.sh` launch script that runs `npm run build` to produce the frontend bundle. Remind them that `npm run build` alone is not enough to serve the app — they'll need a backend or a static file server to actually serve the built `dist/` output. Point them at the `dominodatalab:app-deployment` skill for the full deploy shape.
+- **Next step toward a deployable app:** suggest that the user create an `app.sh` launch script that runs `npm run build` to produce the frontend bundle. Remind them that `npm run build` alone is not enough to serve the app — they'll need a backend or a static file server to actually serve the built `dist/` output. Point them at the `domino-apps` skill for the full deploy shape.
 
 ---
 
@@ -381,4 +387,4 @@ Tell the user:
 - Editing `@dominodatalab/extensions-tools` source. Only the published npm package is consumed; upstream changes need a release from the library repo.
 - Setting up test runners, CI, Tailwind, or other tooling on top. If the user wants those, finish the Domino bootstrap first (Step 12 green), then handle them separately — too many things can fail at once otherwise.
 - Authenticating to private npm registries. If install fails on auth, ask the user; don't guess at credentials or workarounds.
-- Building anything beyond a minimal app *before* the Storybook MCP is running. If the user asks for more than a minimal application while the MCP is not yet available, only scaffold the boilerplate plus a minimal app, then instruct the user to restart Claude after finishing the app configuration so the MCP loads and the rest can be built against real component APIs.
+- Building anything beyond a minimal app *before* the Storybook MCP is running. If the user asks for more than a minimal application while the MCP is not yet available, only scaffold the boilerplate plus a minimal app, then have them register the `storybook` MCP server (Step 6) before the rest gets built against real component APIs — no restart needed, it connects as soon as it's added.

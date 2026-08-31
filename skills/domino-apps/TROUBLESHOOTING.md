@@ -285,7 +285,9 @@ streamlit run app.py \
 # In Domino UI
 # Go to Project > Apps > Select App > Logs
 
-# Or via API
+# Or via API — inside a Domino workspace/job/app, $DOMINO_API_HOST is
+# auto-injected. From Cline on the laptop, that env var isn't set — resolve
+# the cluster's host via the `list_domino_clusters` MCP tool instead.
 TOKEN=$(curl -s http://localhost:8899/access-token)
 curl -H "Authorization: Bearer $TOKEN" \
   "$DOMINO_API_HOST/v4/apps/$APP_ID/logs"

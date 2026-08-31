@@ -34,11 +34,11 @@ def _load_clusters() -> Dict[str, Dict[str, Optional[str]]]:
     """
     Build the registry of laptop-side Domino clusters from env vars:
 
-      DOMINO_CLUSTERS=marcdo126967,mikesn136713
-      DOMINO_HOST_MARCDO126967=https://marcdo126967.cs.domino.tech
-      DOMINO_API_KEY_MARCDO126967=...
-      DOMINO_HOST_MIKESN136713=https://mikesn136713.cs.domino.tech
-      DOMINO_API_KEY_MIKESN136713=...
+      DOMINO_CLUSTERS=alice,bob
+      DOMINO_HOST_ALICE=https://alice.cs.domino.tech
+      DOMINO_API_KEY_ALICE=...
+      DOMINO_HOST_BOB=https://bob.cs.domino.tech
+      DOMINO_API_KEY_BOB=...
 
     Falls back to a single "default" cluster built from the legacy
     DOMINO_HOST / DOMINO_API_KEY vars when DOMINO_CLUSTERS isn't set, so

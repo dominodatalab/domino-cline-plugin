@@ -92,6 +92,28 @@ def test_no_sdk_outside_ref_skills(path: Path):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Rule 7 — Workspace-only env vars need a laptop-side alternative
+# ═══════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.parametrize("path", all_skill_md_files(),
+                         ids=lambda p: str(p.relative_to(SKILLS_DIR)))
+def test_workspace_only_env_var_has_laptop_alternative(path: Path):
+    """Rule 7: a `$DOMINO_API_HOST`-based swagger-fetch example must also
+    mention `list_domino_clusters` — that env var is only set inside a
+    Domino workspace/job/app, and Cline runs from the laptop. Regression
+    guard for the 2026-08-27 fix (domino-apps, domino-jobs,
+    domino-python-sdk x2, domino-ai-gateway, domino-ui-design all silently
+    assumed it)."""
+    text = path.read_text()
+    if "$DOMINO_API_HOST/assets/public-api.json" not in text:
+        return
+    relative = str(path.relative_to(REPO_ROOT))
+    assert "list_domino_clusters" in text, (
+        f"{relative}: uses $DOMINO_API_HOST (workspace-only) without the "
+        f"list_domino_clusters laptop-side alternative")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Internal links
 # ═══════════════════════════════════════════════════════════════════════════
 
