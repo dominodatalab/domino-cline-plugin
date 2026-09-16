@@ -129,6 +129,14 @@ the global Cline rule (`rules/domino.md`, installed above) tells Cline to
 call it before assuming which instance to target when more than one is
 set up.
 
+The same file also holds two optional AWS variables, `AWS_OKTA_ACCOUNT_ID`
+and `AWS_OKTA_ROLE`, used by the `aws-ops` and `domino-access` skills. AWS
+authentication itself goes through `okta-aws` (your own existing Okta AWS
+CLI setup, unrelated to this plugin) — these two variables just give the
+access-check skills something to compare `aws sts get-caller-identity`'s
+output against, so they can confirm you landed in the right account/role
+rather than just some active session.
+
 ## Optional: Atlassian/Confluence MCP
 
 Not part of this plugin, but referenced by the `domino-docs` skill and

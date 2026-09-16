@@ -16,10 +16,17 @@ Session-based via Okta, not a static profile:
 okta-aws   # alias for the okta-aws-cli flow
 ```
 
-Authenticates into role `okta-fulladmin` on account `946429944765`
-(interactive browser-based OIDC — can't be triggered headlessly). Sessions
-have a finite TTL; if a command suddenly starts failing with an auth/expiry
-error, re-run `okta-aws` before assuming anything else is wrong.
+Authenticates into your organization's AWS admin role via interactive
+browser-based OIDC (can't be triggered headlessly) — this is your own
+existing Okta AWS CLI setup, not something this plugin installs or
+configures. Sessions have a finite TTL; if a command suddenly starts
+failing with an auth/expiry error, re-run `okta-aws` before assuming
+anything else is wrong.
+
+Set `AWS_OKTA_ACCOUNT_ID` and `AWS_OKTA_ROLE` in `~/.domino/.env` (see
+`domino.env.example` and the README's "Configure credentials" section) so
+the check below can confirm the session landed in the right place, not
+just "a" place.
 
 ### Quick access check
 
@@ -27,7 +34,8 @@ error, re-run `okta-aws` before assuming anything else is wrong.
 aws sts get-caller-identity
 ```
 
-- Output showing account `946429944765` and role `okta-fulladmin` → ✅ active session.
+- `Account` and role match `AWS_OKTA_ACCOUNT_ID` / `AWS_OKTA_ROLE` (if set) → ✅ active session, right account/role.
+- Any other account/role → ⚠️ probably the wrong Okta profile — check which one `okta-aws` selected.
 - `ExpiredToken` / `The security token included in the request is expired` → re-run `okta-aws`.
 
 For the overall "do you have access to this cluster" workflow (REST API →

@@ -55,7 +55,8 @@ has no kube access for it. See the `domino-teleport` skill for the registry.
 
 ```text
 1. `aws sts get-caller-identity`
-   - Shows account 946429944765 and role okta-fulladmin -> ✅ active session.
+   - Account/role match `AWS_OKTA_ACCOUNT_ID` / `AWS_OKTA_ROLE` from
+     ~/.domino/.env, if configured -> ✅ active session, right account/role.
    - ExpiredToken / "security token ... is expired" -> prompt:
        run `okta-aws` (interactive browser OIDC) to re-auth.
 ```
